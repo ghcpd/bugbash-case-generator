@@ -45,30 +45,36 @@ export function corsErrorHtml(msg) {
 }
 
 export async function setCorsOnStorage() {
-  const sub = document.getElementById('azSub').value.trim();
-  const rg = document.getElementById('azRg').value.trim();
   const storage = document.getElementById('azStorage').value.trim();
-  if (!sub || !rg || !storage) { toast('Fill in Subscription, RG, and Storage Account first'); return; }
+  if (!storage) { toast('Fill in Storage Account first'); return; }
   try {
-    const mgmtToken = getToken('management');
-    const url = `https://management.azure.com/subscriptions/${encodeURIComponent(sub)}/resourceGroups/${encodeURIComponent(rg)}/providers/Microsoft.Storage/storageAccounts/${encodeURIComponent(storage)}?api-version=2023-05-01`;
-    const getResp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + mgmtToken } });
-    if (!getResp.ok) throw new Error('GET storage account failed: HTTP ' + getResp.status);
-    await getResp.json();
-    const corsUrl = `https://management.azure.com/subscriptions/${encodeURIComponent(sub)}/resourceGroups/${encodeURIComponent(rg)}/providers/Microsoft.Storage/storageAccounts/${encodeURIComponent(storage)}/blobServices/default?api-version=2023-05-01`;
-    const body = {
-      properties: {
-        cors: {
-          corsRules: [{
-            allowedOrigins: ['*'], allowedMethods: ['GET', 'HEAD', 'PUT', 'OPTIONS'],
-            allowedHeaders: ['Authorization', 'x-ms-version', 'x-ms-date', 'x-ms-blob-type', 'Content-Type'],
-            exposedHeaders: ['x-ms-meta-*', 'Content-Length', 'Content-Type'], maxAgeInSeconds: 3600,
-          }],
-        },
+    const storageToken = getToken('storage');
+    const url = `https://${storage}.blob.core.windows.net/?restype=service&comp=properties`;
+
+    // Build CORS XML
+    const corsXml = `<?xml version="1.0" encoding="utf-8"?>
+<StorageServiceProperties>
+  <Cors>
+    <CorsRule>
+      <AllowedOrigins>*</AllowedOrigins>
+      <AllowedMethods>GET,HEAD,PUT,OPTIONS</AllowedMethods>
+      <AllowedHeaders>Authorization,x-ms-version,x-ms-date,x-ms-blob-type,Content-Type</AllowedHeaders>
+      <ExposedHeaders>x-ms-meta-*,Content-Length,Content-Type</ExposedHeaders>
+      <MaxAgeInSeconds>3600</MaxAgeInSeconds>
+    </CorsRule>
+  </Cors>
+</StorageServiceProperties>`;
+
+    const resp = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + storageToken,
+        'x-ms-version': '2020-10-02',
+        'Content-Type': 'application/xml',
       },
-    };
-    const putResp = await fetch(corsUrl, { method: 'PUT', headers: { 'Authorization': 'Bearer ' + mgmtToken, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!putResp.ok) { let m = 'HTTP ' + putResp.status; try { const e = await putResp.json(); m = e.error?.message || m; } catch {} throw new Error(m); }
+      body: corsXml,
+    });
+    if (!resp.ok) { let m = 'HTTP ' + resp.status; try { m = await resp.text(); } catch {} throw new Error(m); }
     toast('CORS enabled on ' + storage + '! Retry your request.');
   } catch (e) { toast('CORS setup failed: ' + e.message); }
 }
