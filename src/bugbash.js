@@ -1,7 +1,7 @@
 import { toast, esc, copyText, fmtBytes, fmtTime, fmtDuration, statusBadge, goStep } from './utils.js';
 import { azFetch, blobBaseUrl, blobHeaders, corsErrorHtml } from './azure.js';
 import { openModal } from './modal.js';
-import { refreshRuns } from './monitor.js';
+import { refreshMonitor } from './monitor.js';
 
 let _bbCases = [];
 let _bbGenRubricRunId = null;
@@ -205,7 +205,7 @@ async function pollGenRubricPipeline(runId) {
         clearInterval(_bbPollTimer); _bbPollTimer = null;
         pipelineEl.innerHTML = `<div class="card"><div class="card-head" style="color:var(--red)">✕ gen_rubric ${run.status} (${elapsed})</div>
           <div class="card-body"><p style="color:var(--red);font-size:12px">${esc(run.message || 'Check Monitor tab for details')}</p>
-          <button class="btn-sm" style="margin-top:8px" onclick="window._app.goStep('monitor');window._app.refreshRuns()">View in Monitor →</button></div></div>`;
+          <button class="btn-sm" style="margin-top:8px" onclick="window._app.goStep('monitor');window._app.refreshMonitor()">View in Monitor →</button></div></div>`;
         document.getElementById('btnGenRubric').disabled = false;
         return;
       }
@@ -323,7 +323,7 @@ export async function triggerBugBashAutoRun() {
         <p style="font-size:12px">Run ID: <code style="color:var(--green);cursor:pointer" onclick="window._app.copyText('${esc(data.runId)}','Run ID')">${esc(data.runId)}</code>
           <button class="btn-copy" style="margin-left:6px" onclick="window._app.copyText('${esc(data.runId)}','Run ID')">📋</button></p>
         <p style="font-size:12px;color:var(--muted);margin-top:6px">The bug bash pipeline is now running. Monitor progress in the Monitor tab.</p>
-        <button class="btn-sm" style="margin-top:8px" onclick="window._app.goStep('monitor');window._app.refreshRuns()">View in Monitor →</button>
+        <button class="btn-sm" style="margin-top:8px" onclick="window._app.goStep('monitor');window._app.refreshMonitor()">View in Monitor →</button>
       </div>
     </div>`;
     toast('auto_run_bugbash triggered!');

@@ -155,8 +155,17 @@ textarea{resize:vertical}
 .badge-failed{background:var(--red-dim);color:var(--red)}
 .badge-inprogress{background:var(--accent-dim);color:var(--accent)}
 .badge-queued,.badge-cancelling,.badge-cancelled{background:rgba(138,136,134,.15);color:var(--muted)}
+.badge-generate{background:var(--cyan-dim);color:var(--accent-dark)}
+.badge-audit{background:var(--purple-dim);color:var(--purple)}
 
 /* ── Activity panel ── */
+.monitor-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.monitor-toolbar select,.monitor-toolbar input{font-size:12px;padding:4px 8px}
+.monitor-summary{font-size:11px;color:var(--muted);margin-bottom:10px}
+.linked-hint{margin-top:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface2);font-size:11px;color:var(--muted)}
+.btn-open-batch{padding:4px 10px;border-radius:var(--r);font-size:11px;font-weight:700;cursor:pointer;
+  border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent);transition:all .1s}
+.btn-open-batch:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#fff}
 .act-panel{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-lg);
   margin-top:14px;overflow:hidden}
 .act-head{padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;

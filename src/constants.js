@@ -16,6 +16,11 @@ export const DIFFS = ['', 'L1', 'L2', 'L3', 'L4'];
 
 export const STEPS = ['configure', 'monitor', 'results', 'audit', 'bugbash'];
 
+export const RUN_TYPES = {
+  generate: { pipelineInputId: 'azPipeline', label: 'Generate pipeline', badgeClass: 'badge-generate' },
+  audit: { pipelineInputId: 'auditPipelineName', label: 'Audit pipeline', badgeClass: 'badge-audit' },
+};
+
 export const STORAGE_KEY = 'swebench_prompt_gen';
 
 export const AUDIT_REQUIRED_FIELDS = [

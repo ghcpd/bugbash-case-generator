@@ -92,9 +92,15 @@ function batchHeaders() {
   return { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json', 'ocp-date': new Date().toUTCString() };
 }
 
-export async function batchFetch(path) {
-  const sep = path.includes('?') ? '&' : '?';
-  const url = batchEndpoint() + path + sep + 'api-version=2024-02-01.19.0';
+export async function batchFetch(pathOrUrl) {
+  let url;
+  if (pathOrUrl.startsWith('https://')) {
+    url = pathOrUrl;
+    if (!url.includes('api-version=')) url += (url.includes('?') ? '&' : '?') + 'api-version=2024-02-01.19.0';
+  } else {
+    const sep = pathOrUrl.includes('?') ? '&' : '?';
+    url = batchEndpoint() + pathOrUrl + sep + 'api-version=2024-02-01.19.0';
+  }
   const r = await fetch(url, { headers: batchHeaders() });
   if (!r.ok) { let m = `HTTP ${r.status}`; try { const e = await r.json(); m = e.message?.value || e.code || m; } catch {} throw new Error(m); }
   return r;

@@ -1,61 +1,129 @@
 import { toast, esc, copyText, fmtDuration, fmtTime, statusBadge, goStep } from './utils.js';
 import { azFetch, blobBaseUrl, blobHeaders, corsErrorHtml } from './azure.js';
 import { openModal } from './modal.js';
+import { RUN_TYPES } from './constants.js';
+import { clearBatchLinks, setBatchLinkStatus, renderActiveBatchTasksFallback } from './batch.js';
 
 let _autoRefreshTimer = null;
 let _activityCache = {};
-let _runsCache = [];
+let _runsCache = { generate: [], audit: [] };
+
+function getRunType(kind) { return RUN_TYPES[kind] || RUN_TYPES.generate; }
+function getPipelineName(kind) { return document.getElementById(getRunType(kind).pipelineInputId).value.trim(); }
+
+function syncMonitorLabels() {
+  const gen = document.getElementById('monitorGeneratePipelineName');
+  const audit = document.getElementById('monitorAuditPipelineName');
+  if (gen) gen.textContent = getPipelineName('generate') || '-';
+  if (audit) audit.textContent = getPipelineName('audit') || '-';
+}
+
+function getRunWorkload(run) {
+  return run.parameters?.repo_list
+    ? (() => { try { return JSON.parse(run.parameters.repo_list).length + ' cases'; } catch { return '? cases'; } })()
+    : (run.parameters?.audit_level ? `level ${run.parameters.audit_level}` : (run.parameters?.input_folder ? 'audit run' : '-'));
+}
+
+function getRunDurationSeconds(run) {
+  if (!run.runStart) return 0;
+  return Math.max(0, Math.floor(((run.runEnd ? new Date(run.runEnd) : new Date()) - new Date(run.runStart)) / 1000));
+}
 
 export function getRunsCache() { return _runsCache; }
 
-export async function refreshRuns() {
-  const el = document.getElementById('runsContent');
-  el.innerHTML = '<p class="empty"><span class="spin"></span> Loading…</p>';
-  document.getElementById('activityDetail').innerHTML = '';
-  try {
-    const data = await azFetch('POST', '/queryPipelineRuns?api-version=2018-06-01', {
-      lastUpdatedAfter: new Date(Date.now() - 7 * 86400000).toISOString(),
-      lastUpdatedBefore: new Date(Date.now() + 86400000).toISOString(),
-      filters: [{ operand: 'PipelineName', operator: 'Equals', values: [document.getElementById('azPipeline').value.trim()] }],
-      orderBy: [{ orderBy: 'RunStart', order: 'DESC' }],
-    });
-    const runs = data.value || [];
-    _runsCache = runs;
-    if (!runs.length) { el.innerHTML = '<p class="empty">No runs found (last 7 days)</p>'; return; }
-
-    let h = `<table class="rtable"><tr><th>Run ID</th><th>Status</th><th>Started</th><th>Duration</th><th>Cases</th><th></th><th></th></tr>`;
-    for (const r of runs.slice(0, 25)) {
-      const rid = r.runId || '', sid = rid.substring(0, 8);
-      const pc = r.parameters?.repo_list ? (() => { try { return JSON.parse(r.parameters.repo_list).length + ' cases'; } catch { return '?'; } })() : '-';
-      const cancel = (r.status === 'InProgress' || r.status === 'Queued')
-        ? `<button class="btn-del" style="color:var(--red)" onclick="event.stopPropagation();window._app.cancelRun('${rid}')">Cancel</button>` : '';
-      const backfill = (r.status === 'Failed' || r.status === 'Succeeded') && r.parameters?.repo_list
-        ? `<button class="btn-sm" style="font-size:10px" onclick="event.stopPropagation();window._app.backfillRun('${esc(rid)}')">🔄 Backfill</button>` : '';
-      h += `<tr class="clickable" onclick="window._app.loadActivities('${rid}')">
-        <td><span style="font-family:monospace;color:var(--accent);font-size:11px;word-break:break-all" title="${esc(rid)}">${esc(rid)}</span>
-          <button class="btn-copy" onclick="event.stopPropagation();window._app.copyText('${esc(rid)}','Run ID')" title="Copy Run ID">📋</button></td>
-        <td>${statusBadge(r.status)}</td>
-        <td style="font-size:11px">${fmtTime(r.runStart)}</td>
-        <td style="font-size:11px">${fmtDuration(r.runStart, r.runEnd)}</td>
-        <td style="font-size:11px;color:var(--muted)">${esc(pc)}</td>
-        <td>${cancel}${backfill}</td>
-        <td><button class="btn-copy" onclick="event.stopPropagation();window._app.copyText(JSON.stringify(${esc(JSON.stringify(r))},null,2),'Run JSON')" title="Copy run details">{ }</button></td>
-      </tr>`;
-    }
-    h += '</table>';
-    if (runs.length > 25) h += `<p style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">Showing 25 of ${runs.length}</p>`;
-    el.innerHTML = h;
-  } catch (e) { el.innerHTML = `<p class="empty" style="color:var(--red)">Error: ${esc(e.message)}</p>`; }
+async function fetchRuns(kind = 'generate') {
+  const pipelineName = getPipelineName(kind);
+  if (!pipelineName) return [];
+  const data = await azFetch('POST', '/queryPipelineRuns?api-version=2018-06-01', {
+    lastUpdatedAfter: new Date(Date.now() - 7 * 86400000).toISOString(),
+    lastUpdatedBefore: new Date(Date.now() + 86400000).toISOString(),
+    filters: [{ operand: 'PipelineName', operator: 'Equals', values: [pipelineName] }],
+    orderBy: [{ orderBy: 'RunStart', order: 'DESC' }],
+  });
+  return (data.value || []).map(run => ({ ...run, __kind: kind, __pipelineName: pipelineName }));
 }
 
-export async function loadActivities(runId) {
-  const el = document.getElementById('activityDetail');
+export function renderCombinedRuns() {
+  syncMonitorLabels();
+  const el = document.getElementById('runsContent');
+  const detail = document.getElementById('activityDetailMonitor');
+  const pipelineFilter = document.getElementById('monitorPipelineFilter')?.value || 'all';
+  const statusFilter = document.getElementById('monitorStatusFilter')?.value || 'all';
+  const sortMode = document.getElementById('monitorSort')?.value || 'start-desc';
+  const query = (document.getElementById('monitorSearch')?.value || '').trim().toLowerCase();
+  const combined = [...(_runsCache.generate || []), ...(_runsCache.audit || [])];
+  if (!combined.length) { el.innerHTML = '<p class="empty">No pipeline runs loaded yet</p>'; if (detail) detail.innerHTML = ''; return; }
+
+  let rows = combined.filter(run => {
+    if (pipelineFilter !== 'all' && run.__kind !== pipelineFilter) return false;
+    if (statusFilter !== 'all' && (run.status || '') !== statusFilter) return false;
+    if (query) {
+      const haystack = `${run.runId || ''} ${run.__pipelineName || ''} ${run.__kind || ''}`.toLowerCase();
+      if (!haystack.includes(query)) return false;
+    }
+    return true;
+  });
+
+  rows.sort((a, b) => {
+    switch (sortMode) {
+      case 'start-asc': return new Date(a.runStart || 0) - new Date(b.runStart || 0);
+      case 'duration-desc': return getRunDurationSeconds(b) - getRunDurationSeconds(a);
+      case 'duration-asc': return getRunDurationSeconds(a) - getRunDurationSeconds(b);
+      case 'pipeline': return (a.__pipelineName || '').localeCompare(b.__pipelineName || '');
+      case 'status': return (a.status || '').localeCompare(b.status || '');
+      default: return new Date(b.runStart || 0) - new Date(a.runStart || 0);
+    }
+  });
+
+  let h = `<div class="monitor-summary">Loaded ${combined.length} runs across configured pipelines. Showing ${rows.length} after filters.</div>`;
+  h += `<table class="rtable"><tr><th>Pipeline</th><th>Run ID</th><th>Status</th><th>Started</th><th>Duration</th><th>Workload</th><th>Batch</th><th></th></tr>`;
+  for (const run of rows.slice(0, 50)) {
+    const kind = run.__kind;
+    const cfg = getRunType(kind);
+    const cancel = (run.status === 'InProgress' || run.status === 'Queued')
+      ? `<button class="btn-del" style="color:var(--red)" onclick="event.stopPropagation();window._app.cancelRun('${run.runId}','${kind}')">Cancel</button>` : '';
+    h += `<tr>
+      <td><span class="badge ${cfg.badgeClass}">${esc(run.__pipelineName || cfg.label)}</span></td>
+      <td><span style="font-family:monospace;color:var(--accent);font-size:11px;word-break:break-all" title="${esc(run.runId || '')}">${esc(run.runId || '')}</span>
+        <button class="btn-copy" onclick="event.stopPropagation();window._app.copyText('${esc(run.runId || '')}','Run ID')" title="Copy Run ID">📋</button></td>
+      <td>${statusBadge(run.status)}</td>
+      <td style="font-size:11px">${fmtTime(run.runStart)}</td>
+      <td style="font-size:11px">${fmtDuration(run.runStart, run.runEnd)}</td>
+      <td style="font-size:11px;color:var(--muted)">${esc(getRunWorkload(run))}</td>
+      <td><button class="btn-open-batch" onclick="window._app.openBatchForRun('${run.runId}','${kind}')" title="Open matching Batch tasks for this run">Open Batch</button></td>
+      <td>${cancel}<button class="btn-copy" onclick="event.stopPropagation();window._app.copyText(JSON.stringify(${esc(JSON.stringify(run))},null,2),'Run JSON')" title="Copy run details">{ }</button></td>
+    </tr>`;
+  }
+  h += '</table>';
+  if (rows.length > 50) h += `<p style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">Showing 50 of ${rows.length}</p>`;
+  el.innerHTML = h;
+}
+
+export async function openBatchForRun(runId, kind = 'generate') {
+  const cfg = getRunType(kind);
+  const batchLink = document.getElementById('batchLinkStatus');
+  if (batchLink) {
+    setBatchLinkStatus(`<span class="spin"></span> Listing currently running Batch tasks in the selected pool for ${esc(cfg.label)} ${esc((runId || '').substring(0, 8))}…`, false);
+    batchLink.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  try {
+    clearBatchLinks();
+    await renderActiveBatchTasksFallback(`${cfg.label} ${runId.substring(0, 8)}…`);
+    setBatchLinkStatus(`Showing all currently running Batch tasks in the selected pool for ${esc(cfg.label)} ${esc((runId || '').substring(0, 8))}….`, false);
+  } catch (e) {
+    setBatchLinkStatus(`Failed to open Batch view for ${esc(cfg.label)} ${esc((runId || '').substring(0, 8))}…: ${esc(e.message)}`, true);
+  }
+}
+
+export async function loadActivities(runId, kind = 'generate') {
+  const cfg = getRunType(kind);
+  const el = document.getElementById('activityDetailMonitor');
   el.innerHTML = `<div class="act-panel"><div class="act-head"><span class="spin"></span> Loading activities…</div></div>`;
   try {
     const data = await azFetch('POST', `/pipelineruns/${encodeURIComponent(runId)}/queryActivityruns?api-version=2018-06-01`,
       { lastUpdatedAfter: '2024-01-01T00:00:00Z', lastUpdatedBefore: new Date(Date.now() + 86400000).toISOString() });
     const acts = data.value || [];
-    _activityCache[runId] = acts;
+    _activityCache[`${kind}:${runId}`] = acts;
     if (!acts.length) { el.innerHTML = '<div class="act-panel"><div class="act-head">No activities</div></div>'; return; }
 
     let nS = 0, nF = 0, nR = 0, nQ = 0;
@@ -69,7 +137,7 @@ export async function loadActivities(runId) {
 
     let h = `<div class="act-panel">
       <div class="act-head">
-        <span style="flex:1">Activities — <code style="color:var(--accent);cursor:pointer" onclick="window._app.copyText('${esc(runId)}','Run ID')">${esc(runId.substring(0, 8))}…</code>
+        <span style="flex:1">${esc(cfg.label)} activities — <code style="color:var(--accent);cursor:pointer" onclick="window._app.copyText('${esc(runId)}','Run ID')">${esc(runId.substring(0, 8))}…</code>
           <button class="btn-copy" onclick="window._app.copyText('${esc(runId)}','Run ID')">📋</button></span>
         <div class="act-progress">
           ${nS ? `<span class="ap-s">✓ ${nS}</span>` : ''}
@@ -97,7 +165,7 @@ export async function loadActivities(runId) {
         <td>${batchTaskId !== '-' ? `<span class="batch-tid">${esc(batchTaskId)}</span> <button class="btn-copy" onclick="event.stopPropagation();window._app.copyText('${esc(batchTaskId)}','Task ID')">📋</button>` : `<span style="color:var(--muted)">-</span>`}</td>
         <td>${err ? `<span class="err-text" title="${esc(err)}">${esc(err.substring(0, 120))}${err.length > 120 ? '…' : ''}</span> <button class="btn-copy" onclick="event.stopPropagation();window._app.copyText(\`${esc(err.replace(/`/g, "'"))}\`,'Error')">📋</button>` : '<span style="color:var(--muted)">-</span>'}</td>
         <td class="act-actions">
-          <button class="btn-log json" onclick="event.stopPropagation();window._app.viewActivityOutput(${i},'${esc(runId)}')" title="View full output JSON">{ }</button>
+          <button class="btn-log json" onclick="event.stopPropagation();window._app.viewActivityOutput(${i},'${esc(runId)}','${kind}')" title="View full output JSON">{ }</button>
           ${err ? `<button class="btn-log stderr" onclick="event.stopPropagation();window._app.copyText(\`${esc(err.replace(/`/g, "'"))}\`,'Error')" title="Copy error">⚠</button>` : ''}
         </td></tr>`;
     }
@@ -106,8 +174,8 @@ export async function loadActivities(runId) {
   } catch (e) { el.innerHTML = `<div class="act-panel"><div class="act-head" style="color:var(--red)">Error: ${esc(e.message)}</div></div>`; }
 }
 
-export function viewActivityOutput(idx, runId) {
-  const acts = _activityCache[runId];
+export function viewActivityOutput(idx, runId, kind = 'generate') {
+  const acts = _activityCache[`${kind}:${runId}`];
   if (!acts || !acts[idx]) return;
   const a = acts[idx];
   const title = `Output — ${a.activityName || 'Activity ' + idx}`;
@@ -115,20 +183,21 @@ export function viewActivityOutput(idx, runId) {
   openModal(title, content);
 }
 
-export async function cancelRun(runId) {
+export async function cancelRun(runId, kind = 'generate') {
   if (!confirm('Cancel this run?')) return;
-  try { await azFetch('POST', `/pipelineruns/${encodeURIComponent(runId)}/cancel?api-version=2018-06-01`); toast('Cancel requested'); setTimeout(refreshRuns, 1500); }
+  try { await azFetch('POST', `/pipelineruns/${encodeURIComponent(runId)}/cancel?api-version=2018-06-01`); toast('Cancel requested'); setTimeout(refreshMonitor, 1500); }
   catch (e) { alert('Failed: ' + e.message); }
 }
 
 export async function backfillRun(runId) {
-  const run = _runsCache.find(r => r.runId === runId);
+  const allRuns = [...(_runsCache.generate || []), ...(_runsCache.audit || [])];
+  const run = allRuns.find(r => r.runId === runId);
   if (!run?.parameters?.repo_list) { alert('No repo_list found in run parameters'); return; }
   let repoList;
   try { repoList = JSON.parse(run.parameters.repo_list); } catch { alert('Cannot parse repo_list'); return; }
   if (!repoList.length) { alert('repo_list is empty'); return; }
 
-  const el = document.getElementById('activityDetail');
+  const el = document.getElementById('activityDetailMonitor');
   el.innerHTML = `<div class="act-panel"><div class="act-head"><span class="spin"></span> Checking blob storage for completed cases…</div></div>`;
 
   try {
@@ -202,15 +271,27 @@ export async function doBackfill() {
   try {
     const data = await azFetch('POST', `/pipelines/${encodeURIComponent(document.getElementById('azPipeline').value.trim())}/createRun?api-version=2018-06-01`, params);
     toast(`Backfill triggered! Run ID: ${data.runId.substring(0, 8)}…`);
-    setTimeout(refreshRuns, 1500);
+    setTimeout(refreshMonitor, 1500);
   } catch (e) { alert('Backfill trigger failed: ' + e.message); }
 }
 
 export function toggleAutoRefresh() {
   if (document.getElementById('autoRefresh').checked) {
-    refreshRuns();
-    _autoRefreshTimer = setInterval(refreshRuns, 15000);
+    refreshMonitor();
+    _autoRefreshTimer = setInterval(refreshMonitor, 15000);
   } else {
     if (_autoRefreshTimer) { clearInterval(_autoRefreshTimer); _autoRefreshTimer = null; }
   }
+}
+
+export async function refreshMonitor() {
+  syncMonitorLabels();
+  const el = document.getElementById('runsContent');
+  el.innerHTML = '<p class="empty"><span class="spin"></span> Loading…</p>';
+  try {
+    const [generateRuns, auditRuns] = await Promise.all([fetchRuns('generate'), fetchRuns('audit')]);
+    _runsCache.generate = generateRuns;
+    _runsCache.audit = auditRuns;
+    renderCombinedRuns();
+  } catch (e) { el.innerHTML = `<p class="empty" style="color:var(--red)">Error: ${esc(e.message)}</p>`; }
 }

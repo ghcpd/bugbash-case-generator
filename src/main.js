@@ -6,8 +6,8 @@ import { initAuth, importTokens, refreshTokensViaScript, signOut } from './auth.
 import { setCorsOnStorage } from './azure.js';
 import { initSelects, bulkAdd, addRow, updateCount } from './tasks.js';
 import { generate, cpRepoList, resetAll, triggerPipeline } from './generate.js';
-import { refreshRuns, loadActivities, viewActivityOutput, cancelRun, backfillRun, doBackfill, toggleAutoRefresh } from './monitor.js';
-import { listBatchJobs, renderBatchTasks, loadBatchTasks, viewBatchFile, refreshModal } from './batch.js';
+import { refreshMonitor, renderCombinedRuns, openBatchForRun, loadActivities, viewActivityOutput, cancelRun, backfillRun, doBackfill, toggleAutoRefresh } from './monitor.js';
+import { listBatchJobs, renderBatchTasks, loadBatchTasks, viewBatchFile, refreshModal, searchBatchExplorer } from './batch.js';
 import { refreshBlobs, previewBlob } from './results.js';
 import { loadAuditCases, toggleAuditCase, selectAllAudit, selectNoneAudit, runQuickAudit, triggerAuditPipeline, loadAuditResults, previewAuditResult } from './audit.js';
 import { loadBugBashCases, toggleBBCase, viewBBCase, bbSelectAll, bbSelectNone, bbSelectWithTar, triggerBugBashGenRubric, triggerBugBashAutoRun, loadPipelineDefinition, resetBugBash, exportPromptsAsMd } from './bugbash.js';
@@ -21,8 +21,8 @@ window._app = {
   setCorsOnStorage,
   bulkAdd, addRow, updateCount,
   generate, cpRepoList, resetAll, triggerPipeline,
-  refreshRuns, loadActivities, viewActivityOutput, cancelRun, backfillRun, doBackfill, toggleAutoRefresh,
-  listBatchJobs, renderBatchTasks, loadBatchTasks, viewBatchFile, refreshModal,
+  refreshMonitor, renderCombinedRuns, openBatchForRun, loadActivities, viewActivityOutput, cancelRun, backfillRun, doBackfill, toggleAutoRefresh,
+  listBatchJobs, renderBatchTasks, loadBatchTasks, viewBatchFile, refreshModal, searchBatchExplorer,
   refreshBlobs, previewBlob,
   loadAuditCases, toggleAuditCase, selectAllAudit, selectNoneAudit, runQuickAudit, triggerAuditPipeline, loadAuditResults, previewAuditResult,
   loadBugBashCases, toggleBBCase, viewBBCase, bbSelectAll, bbSelectNone, bbSelectWithTar, triggerBugBashGenRubric, triggerBugBashAutoRun, loadPipelineDefinition, resetBugBash, exportPromptsAsMd,
@@ -48,7 +48,7 @@ try {
   const tab = localStorage.getItem('swebench_active_tab');
   if (tab && STEPS.includes(tab)) {
     goStep(tab);
-    if (tab === 'monitor') setTimeout(refreshRuns, 300);
+    if (tab === 'monitor') setTimeout(refreshMonitor, 300);
     if (tab === 'results') setTimeout(refreshBlobs, 300);
     if (tab === 'audit') setTimeout(loadAuditCases, 300);
   }

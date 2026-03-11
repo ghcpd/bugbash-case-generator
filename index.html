@@ -150,7 +150,24 @@
 
 <!-- ── Panel: Monitor ── -->
 <div class="tab-panel" id="panel-monitor">
-  <!-- Pipeline Runs -->
+  <!-- Monitor Guide -->
+  <div class="card">
+    <div class="card-head"><span class="icon">🧭</span> Monitor Guide</div>
+    <div class="card-body">
+      <div class="row row-2">
+        <div class="fg" style="margin-bottom:0">
+          <label>Unified Pipeline Runs</label>
+          <div class="hint" style="margin-top:0">All configured pipelines appear in one list with a clear pipeline badge. Use filter and sort controls to focus on generate, audit, or future pipelines. Use <b>Open Batch</b> to jump straight to the Batch Explorer and list all currently running tasks in the selected pool.</div>
+        </div>
+        <div class="fg" style="margin-bottom:0">
+          <label>Batch Explorer</label>
+          <div class="hint" style="margin-top:0">Use this only when you need lower-level Batch jobs, task IDs, stdout, or stderr.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unified Pipeline Runs -->
   <div class="card">
     <div class="card-head">
       <span class="icon">▶</span>
@@ -158,11 +175,36 @@
       <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;margin-right:8px;color:var(--muted)">
         <input type="checkbox" id="autoRefresh" onchange="window._app.toggleAutoRefresh()"> Auto 15s
       </label>
-      <button class="btn-sm" onclick="window._app.refreshRuns()">⟳ Refresh</button>
+      <button class="btn-sm" onclick="window._app.refreshMonitor()">⟳ Refresh</button>
     </div>
     <div class="card-body">
+      <div class="monitor-summary">Configured pipelines: <code id="monitorGeneratePipelineName">bug_bash_batch_generate_pipeline</code> and <code id="monitorAuditPipelineName">bug_bash_audit_case_pipeline</code>. This filter only matches ADF pipeline runs, not Batch job IDs or task IDs.</div>
+      <div class="monitor-toolbar">
+        <select id="monitorPipelineFilter" onchange="window._app.renderCombinedRuns()">
+          <option value="all">All pipelines</option>
+          <option value="generate">Generate only</option>
+          <option value="audit">Audit only</option>
+        </select>
+        <select id="monitorStatusFilter" onchange="window._app.renderCombinedRuns()">
+          <option value="all">All statuses</option>
+          <option value="InProgress">In progress</option>
+          <option value="Queued">Queued</option>
+          <option value="Succeeded">Succeeded</option>
+          <option value="Failed">Failed</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+        <select id="monitorSort" onchange="window._app.renderCombinedRuns()">
+          <option value="start-desc">Newest first</option>
+          <option value="start-asc">Oldest first</option>
+          <option value="duration-desc">Longest duration</option>
+          <option value="duration-asc">Shortest duration</option>
+          <option value="pipeline">Pipeline</option>
+          <option value="status">Status</option>
+        </select>
+        <input id="monitorSearch" placeholder="Search ADF run ID or pipeline..." oninput="window._app.renderCombinedRuns()" style="width:220px">
+      </div>
       <div id="runsContent"><p class="empty">Click Refresh to load pipeline runs</p></div>
-      <div id="activityDetail"></div>
+      <div id="activityDetailMonitor"></div>
     </div>
   </div>
 
@@ -172,10 +214,14 @@
       <span class="icon">🔍</span>
       <span style="flex:1">Batch Explorer</span>
       <input id="batchPoolFilter" placeholder="Pool ID filter (e.g. test_gen_rubric)" value="test_gen_rubric" style="width:200px;font-size:11px;padding:4px 8px;margin-right:6px">
+      <input id="batchSearch" placeholder="Search Batch task ID or job ID..." style="width:220px;font-size:11px;padding:4px 8px;margin-right:6px" onkeydown="if(event.key==='Enter')window._app.searchBatchExplorer()">
+      <button class="btn-sm" onclick="window._app.searchBatchExplorer()">Search</button>
       <button class="btn-sm" onclick="window._app.listBatchJobs()">List Jobs</button>
     </div>
 
     <div class="card-body">
+      <div class="hint" style="margin-bottom:10px">This view is lower-level than ADF. Use it when you need Batch job state, task IDs, or raw stdout/stderr.</div>
+      <div id="batchLinkStatus" class="linked-hint">Use Open Batch on any pipeline run to list all currently running Batch tasks in the selected pool.</div>
       <div id="batchJobsContent"><p class="empty">Set Pool ID filter above, then click "List Jobs"</p></div>
       <div id="batchTasksDetail"></div>
     </div>

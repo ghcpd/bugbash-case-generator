@@ -2,7 +2,7 @@ import { toast, esc, copyText, goStep } from './utils.js';
 import { azFetch } from './azure.js';
 import { getTasks, addRow, updateCount } from './tasks.js';
 import { STORAGE_KEY } from './constants.js';
-import { refreshRuns } from './monitor.js';
+import { refreshMonitor } from './monitor.js';
 import { saveState } from './persistence.js';
 
 let _expandedRepoList = null;
@@ -88,7 +88,7 @@ export async function triggerPipeline() {
     toast('Pipeline triggered!');
     document.getElementById('step-configure').classList.add('done');
     document.getElementById('conn-1').classList.add('done');
-    setTimeout(() => { goStep('monitor'); refreshRuns(); }, 1500);
+    setTimeout(() => { goStep('monitor'); refreshMonitor(); }, 1500);
   } catch (e) { el.className = 'status-banner show err'; el.style = ''; el.innerHTML = `✕ ${esc(e.message)}`; }
   finally { btn.disabled = false; }
 }
