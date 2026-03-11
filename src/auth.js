@@ -1,11 +1,28 @@
 import { toast } from './utils.js';
 
-// In-memory token store — populated by importTokens() or the local refresh script
+const TOKEN_STORAGE_KEY = 'swebench_tokens';
+
+// Token store — persisted to sessionStorage
 const tokens = {
   management: '',
   storage: '',
   batch: '',
 };
+
+function persistTokens() {
+  try { sessionStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokens)); } catch {}
+}
+
+function restoreTokens() {
+  try {
+    const raw = sessionStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (saved.management) tokens.management = saved.management;
+    if (saved.storage) tokens.storage = saved.storage;
+    if (saved.batch) tokens.batch = saved.batch;
+  } catch {}
+}
 
 export function getToken(resource) {
   const t = tokens[resource];
@@ -20,6 +37,7 @@ export function setTokens(obj) {
   if (obj.management) tokens.management = obj.management;
   if (obj.storage) tokens.storage = obj.storage;
   if (obj.batch) tokens.batch = obj.batch;
+  persistTokens();
   updateTokenUI();
 }
 
@@ -56,6 +74,7 @@ export async function importTokens() {
     }
 
     if (count > 0) {
+      persistTokens();
       toast(`Imported ${count} token(s)`);
       updateTokenUI();
     } else {
@@ -64,10 +83,6 @@ export async function importTokens() {
   } catch (e) { toast('Clipboard: ' + e.message); }
 }
 
-/**
- * Run the PowerShell script to generate tokens and copy to clipboard,
- * then auto-import.
- */
 export async function refreshTokensViaScript() {
   const script = generatePowerShellScript();
   await navigator.clipboard.writeText(script);
@@ -98,11 +113,15 @@ function updateTokenUI() {
   }).join(' ');
 }
 
-// Re-export for backward compat
-export async function initAuth() { updateTokenUI(); }
+export async function initAuth() {
+  restoreTokens();
+  updateTokenUI();
+}
+
 export async function signIn() { await refreshTokensViaScript(); }
 export async function signOut() {
   tokens.management = ''; tokens.storage = ''; tokens.batch = '';
+  persistTokens();
   updateTokenUI();
   toast('Tokens cleared');
 }
