@@ -128,48 +128,134 @@ export function viewBBCase(idx) {
   openModal(c.data.instance_id || c.shortName, JSON.stringify(c.data, null, 2));
 }
 
-export async function triggerBugBashGenRubric() {
+let _pendingGenRubricParams = null;
+
+export function triggerBugBashGenRubric() {
   const selected = _bbCases.filter(c => c.selected && c.data && !c.data._error);
   if (!selected.length) { alert('Select at least one valid case'); return; }
-  const noTar = selected.filter(c => !c.tarGzPath);
-  if (noTar.length && !confirm(`${noTar.length} selected case(s) have no tar.gz. Continue anyway?`)) return;
 
   const pipelineName = document.getElementById('bbGenRubricPipeline').value.trim();
   if (!pipelineName) { alert('Set Gen Rubric pipeline name'); return; }
 
   const storageAccount = document.getElementById('azStorage').value.trim();
   const container = document.getElementById('azContainer').value.trim();
-  const rubricFolder = document.getElementById('bbRubricOutputFolder').value.trim();
+  const outputFolder = document.getElementById('bbRubricOutputFolder').value.trim();
+  const promptsFolder = document.getElementById('bbPromptsFolder').value.trim();
+  const inputFolder = document.getElementById('azOutputFolder').value.trim();
+  const ghToken = document.getElementById('azGhToken').value.trim();
 
-  const caseList = selected.map(c => {
-    const item = {
-      instance_id: c.data.instance_id || c.baseName,
-      prompt: c.data.issue_text || '',
-      tar_gz_path: c.tarGzPath ? `https://${storageAccount}.blob.core.windows.net/${container}/${c.tarGzPath}` : '',
-    };
-    if (c.data.repo) item.repo = c.data.repo;
-    if (c.data.base_commit) item.base_commit = c.data.base_commit;
-    return item;
-  });
+  // Build repos array: tar.gz base names of selected cases
+  const repos = selected
+    .filter(c => c.tarGzPath)
+    .map(c => c.tarGzPath.split('/').pop().replace('.tar.gz', ''));
+
+  // Build task_prompt: path to the prompts folder containing {instanceId}.md files
+  const taskPromptPath = promptsFolder || '';
+
+  // Pre-fill parameter values
+  const params = {
+    input:           { type: 'string', value: inputFolder + '/tar.gz' },
+    output:          { type: 'string', value: outputFolder },
+    rubric_prompt:   { type: 'string', value: outputFolder },
+    storage_account: { type: 'string', value: storageAccount },
+    container:       { type: 'string', value: container },
+    github_token:    { type: 'string', value: ghToken },
+    repos:           { type: 'array',  value: repos },
+    task_prompt:     { type: 'string', value: taskPromptPath },
+    usage_model:     { type: 'string', value: document.getElementById('azModel').value.trim() },
+  };
+
+  _pendingGenRubricParams = { pipelineName, params };
+  renderParamPreview();
+}
+
+function renderParamPreview() {
+  if (!_pendingGenRubricParams) return;
+  const { pipelineName, params } = _pendingGenRubricParams;
+
+  const el = document.getElementById('bbProgress');
+  let h = `<div class="card">
+    <div class="card-head">
+      <span class="icon">📦</span>
+      <span style="flex:1">Pipeline Parameters — <code style="color:var(--accent)">${esc(pipelineName)}</code></span>
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:12px" onclick="window._app.confirmTriggerGenRubric()">🚀 Trigger Pipeline</button>
+      <button class="btn-sm" style="margin-left:4px" onclick="window._app.copyText(JSON.stringify(window._app.getGenRubricPayload(),null,2),'Params')">📋 Copy JSON</button>
+    </div>
+    <div class="card-body">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="background:var(--surface2)">
+          <th style="padding:6px 10px;text-align:left;color:var(--muted);font-size:11px;border-bottom:1px solid var(--border);width:160px">Parameter</th>
+          <th style="padding:6px 10px;text-align:left;color:var(--muted);font-size:11px;border-bottom:1px solid var(--border);width:60px">Type</th>
+          <th style="padding:6px 10px;text-align:left;color:var(--muted);font-size:11px;border-bottom:1px solid var(--border)">Value</th>
+        </tr>`;
+
+  for (const [name, spec] of Object.entries(params)) {
+    const isArray = spec.type === 'array';
+    const displayVal = isArray ? JSON.stringify(spec.value) : (spec.value || '');
+    const inputId = `bbParam_${name}`;
+
+    if (isArray) {
+      h += `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:5px 10px;font-family:monospace;font-size:11px;color:var(--cyan)">${esc(name)}</td>
+        <td style="padding:5px 10px;color:var(--muted);font-size:11px">${esc(spec.type)}</td>
+        <td style="padding:5px 10px">
+          <textarea id="${inputId}" rows="3" style="width:100%;font-size:11px;font-family:'Cascadia Code',monospace;padding:6px 8px">${esc(JSON.stringify(spec.value, null, 2))}</textarea>
+          <span style="font-size:10px;color:var(--muted)">${spec.value.length} item(s)</span>
+        </td>
+      </tr>`;
+    } else {
+      h += `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:5px 10px;font-family:monospace;font-size:11px;color:var(--cyan)">${esc(name)}</td>
+        <td style="padding:5px 10px;color:var(--muted);font-size:11px">${esc(spec.type)}</td>
+        <td style="padding:5px 10px">
+          <input id="${inputId}" type="${name.includes('token') ? 'password' : 'text'}" value="${esc(displayVal)}" style="width:100%;font-size:12px;padding:5px 8px">
+        </td>
+      </tr>`;
+    }
+  }
+
+  h += `</table>
+    </div>
+  </div>`;
+  el.innerHTML = h;
+}
+
+export function getGenRubricPayload() {
+  if (!_pendingGenRubricParams) return {};
+  const { params } = _pendingGenRubricParams;
+  const payload = {};
+  for (const [name, spec] of Object.entries(params)) {
+    const el = document.getElementById(`bbParam_${name}`);
+    if (!el) continue;
+    const raw = el.value.trim();
+    if (!raw) continue;
+    if (spec.type === 'array') {
+      try { payload[name] = JSON.parse(raw); } catch { payload[name] = raw; }
+    } else {
+      payload[name] = raw;
+    }
+  }
+  return payload;
+}
+
+export async function confirmTriggerGenRubric() {
+  if (!_pendingGenRubricParams) { alert('No parameters prepared'); return; }
+  const { pipelineName } = _pendingGenRubricParams;
+  const payload = getGenRubricPayload();
 
   const statusEl = document.getElementById('bbProgress');
-  statusEl.innerHTML = `<div class="status-banner show" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted)"><span class="spin"></span> Triggering gen_rubric pipeline with ${caseList.length} case(s)…</div>`;
+  statusEl.innerHTML = `<div class="status-banner show" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted)"><span class="spin"></span> Triggering ${esc(pipelineName)}…</div>`;
   document.getElementById('btnGenRubric').disabled = true;
 
   try {
-    const params = { case_list: caseList, output_folder: rubricFolder, storage_account: storageAccount, container };
-    const mo = document.getElementById('azModel').value.trim();
-    if (mo) params.copilot_model = mo;
-    const to = document.getElementById('azTimeout').value.trim();
-    if (to) params.copilot_timeout = to;
-
-    const data = await azFetch('POST', `/pipelines/${encodeURIComponent(pipelineName)}/createRun?api-version=2018-06-01`, params);
+    const data = await azFetch('POST', `/pipelines/${encodeURIComponent(pipelineName)}/createRun?api-version=2018-06-01`, payload);
     _bbGenRubricRunId = data.runId;
-    statusEl.innerHTML = `<div class="status-banner show ok">✓ gen_rubric triggered — Run ID:
+    _pendingGenRubricParams = null;
+    statusEl.innerHTML = `<div class="status-banner show ok">✓ ${esc(pipelineName)} triggered — Run ID:
       <code style="font-size:12px;color:var(--green);cursor:pointer" onclick="window._app.copyText('${esc(data.runId)}','Run ID')">${esc(data.runId)}</code>
       <button class="btn-copy" style="margin-left:8px" onclick="window._app.copyText('${esc(data.runId)}','Run ID')">📋</button>
     </div>`;
-    toast('gen_rubric pipeline triggered!');
+    toast(pipelineName + ' triggered!');
     pollGenRubricPipeline(data.runId);
   } catch (e) {
     statusEl.innerHTML = `<div class="status-banner show err">✕ ${esc(e.message)}</div>`;
