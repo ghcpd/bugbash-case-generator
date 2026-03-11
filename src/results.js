@@ -53,7 +53,7 @@ export async function previewBlob(blobName) {
     el.innerHTML = `<div class="blob-preview">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-weight:600;font-size:12px;color:var(--accent);flex:1">${esc(blobName.split('/').pop())}</span>
-        <button class="btn-copy" onclick="navigator.clipboard.writeText(document.getElementById('blobText').textContent);window._app.toast('Content copied!')">📋 Copy</button>
+        <button class="btn-copy" onclick="window._app.clipboardWrite(document.getElementById('blobText').textContent).then(()=>window._app.toast('Content copied!'))">📋 Copy</button>
         <button class="btn-sm" onclick="window._app.openModal('${esc(blobName.split('/').pop())}',document.getElementById('blobText').textContent)">⤢ Expand</button>
       </div>
       <pre id="blobText">${esc(display)}</pre>

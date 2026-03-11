@@ -1,4 +1,4 @@
-import { toast } from './utils.js';
+import { toast, clipboardRead, clipboardWrite } from './utils.js';
 
 const TOKEN_STORAGE_KEY = 'swebench_tokens';
 
@@ -50,9 +50,16 @@ export function hasAllTokens() {
  *   - JSON: { "management": "...", "storage": "...", "batch": "..." }
  *   - The output of the get_tokens.ps1 script
  */
-export async function importTokens() {
+export async function importTokens(pastedText) {
   try {
-    const text = await navigator.clipboard.readText();
+    let text = pastedText;
+    if (!text) {
+      try { text = await clipboardRead(); } catch {
+        // Clipboard API unavailable (HTTP) — show paste dialog
+        showPasteDialog();
+        return;
+      }
+    }
     if (!text?.trim()) { toast('Clipboard is empty'); return; }
     let data;
     try { data = JSON.parse(text); } catch { toast('Clipboard is not valid JSON'); return; }
@@ -83,9 +90,29 @@ export async function importTokens() {
   } catch (e) { toast('Clipboard: ' + e.message); }
 }
 
+function showPasteDialog() {
+  const existing = document.getElementById('pasteDialog');
+  if (existing) existing.remove();
+  const d = document.createElement('div');
+  d.id = 'pasteDialog';
+  d.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center';
+  d.innerHTML = `<div style="background:var(--bg,#1e1e2e);border-radius:12px;padding:24px;width:480px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+    <h3 style="margin:0 0 8px;color:var(--fg,#cdd6f4)">Paste Token JSON</h3>
+    <p style="margin:0 0 12px;font-size:12px;color:var(--muted,#6c7086)">Clipboard API is not available on HTTP. Paste the JSON from get_tokens.ps1 here:</p>
+    <textarea id="pasteTokenArea" rows="4" style="width:100%;box-sizing:border-box;background:var(--surface,#313244);color:var(--fg,#cdd6f4);border:1px solid var(--border,#45475a);border-radius:6px;padding:8px;font-family:monospace;font-size:12px;resize:vertical" placeholder='{"management":"...","storage":"...","batch":"..."}'></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button onclick="document.getElementById('pasteDialog').remove()" style="padding:6px 16px;border-radius:6px;border:1px solid var(--border,#45475a);background:transparent;color:var(--fg,#cdd6f4);cursor:pointer">Cancel</button>
+      <button onclick="window._app.importTokens(document.getElementById('pasteTokenArea').value);document.getElementById('pasteDialog').remove()" style="padding:6px 16px;border-radius:6px;border:none;background:var(--accent,#89b4fa);color:#1e1e2e;cursor:pointer;font-weight:600">Import</button>
+    </div>
+  </div>`;
+  document.body.appendChild(d);
+  d.addEventListener('click', e => { if (e.target === d) d.remove(); });
+  setTimeout(() => document.getElementById('pasteTokenArea')?.focus(), 50);
+}
+
 export async function refreshTokensViaScript() {
   const script = generatePowerShellScript();
-  await navigator.clipboard.writeText(script);
+  await clipboardWrite(script);
   toast('PowerShell script copied! Paste in terminal, then click "📋 Import from Clipboard"');
 }
 

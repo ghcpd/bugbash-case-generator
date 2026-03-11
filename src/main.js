@@ -1,7 +1,7 @@
 import './styles/main.css';
 
 import { STEPS } from './constants.js';
-import { toast, esc, toggleCollapse, copyText, goStep } from './utils.js';
+import { toast, esc, toggleCollapse, copyText, clipboardWrite, goStep } from './utils.js';
 import { initAuth, importTokens, refreshTokensViaScript, signOut } from './auth.js';
 import { setCorsOnStorage } from './azure.js';
 import { initSelects, bulkAdd, addRow, updateCount } from './tasks.js';
@@ -16,7 +16,7 @@ import { saveState, loadState, autoSave } from './persistence.js';
 
 // Expose functions globally for inline onclick handlers
 window._app = {
-  toast, esc, toggleCollapse, copyText, goStep,
+  toast, esc, toggleCollapse, copyText, clipboardWrite, goStep,
   importTokens, refreshTokensViaScript, signOut,
   setCorsOnStorage,
   bulkAdd, addRow, updateCount,

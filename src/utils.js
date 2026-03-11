@@ -18,8 +18,23 @@ export function toggleCollapse(el) {
   el.nextElementSibling.classList.toggle('collapsed');
 }
 
+export function clipboardWrite(text) {
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px';
+  document.body.appendChild(ta); ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  return Promise.resolve();
+}
+
+export async function clipboardRead() {
+  if (navigator.clipboard?.readText) return navigator.clipboard.readText();
+  throw new Error('Clipboard read not available on HTTP — please paste tokens into the text box below instead');
+}
+
 export function copyText(text, label) {
-  navigator.clipboard.writeText(text).then(() => toast((label || 'Text') + ' copied!'));
+  clipboardWrite(text).then(() => toast((label || 'Text') + ' copied!'));
 }
 
 export function goStep(name) {

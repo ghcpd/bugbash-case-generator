@@ -317,7 +317,7 @@ export async function previewAuditResult(blobName) {
       el.innerHTML = `<div class="blob-preview">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <span style="font-weight:600;font-size:12px;color:var(--accent);flex:1">${esc(blobName.split('/').pop())}</span>
-          <button class="btn-copy" onclick="navigator.clipboard.writeText(document.getElementById('auditText').textContent);window._app.toast('Copied!')">📋 Copy</button>
+          <button class="btn-copy" onclick="window._app.clipboardWrite(document.getElementById('auditText').textContent).then(()=>window._app.toast('Copied!'))">📋 Copy</button>
         </div>
         <pre id="auditText">${esc(typeof parsed === 'object' ? JSON.stringify(parsed, null, 2) : text)}</pre>
       </div>`;

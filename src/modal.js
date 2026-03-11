@@ -1,4 +1,4 @@
-import { toast } from './utils.js';
+import { toast, clipboardWrite } from './utils.js';
 
 export function openModal(title, content, showRefresh) {
   document.getElementById('logModalTitle').textContent = title;
@@ -15,5 +15,5 @@ export function closeModal() {
 
 export function copyModalContent() {
   const text = document.getElementById('logModalContent').textContent;
-  navigator.clipboard.writeText(text).then(() => toast('Content copied!'));
+  clipboardWrite(text).then(() => toast('Content copied!'));
 }

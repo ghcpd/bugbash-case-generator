@@ -1,4 +1,4 @@
-import { toast, esc, copyText, goStep } from './utils.js';
+import { toast, esc, copyText, goStep, clipboardWrite } from './utils.js';
 import { azFetch } from './azure.js';
 import { getTasks, addRow, updateCount } from './tasks.js';
 import { STORAGE_KEY } from './constants.js';
@@ -58,7 +58,7 @@ export function generate() {
 
 export function cpRepoList() {
   if (!_expandedRepoList) return;
-  navigator.clipboard.writeText(JSON.stringify(_expandedRepoList)).then(() => toast('JSON copied!'));
+  clipboardWrite(JSON.stringify(_expandedRepoList)).then(() => toast('JSON copied!'));
 }
 
 export function resetAll() {
