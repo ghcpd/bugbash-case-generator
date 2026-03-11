@@ -4,7 +4,7 @@ const STORAGE_KEY = 'swebench_prompt_gen';
 
 export function saveState() {
   try {
-    const settingIds = ['azSub', 'azRg', 'azFactory', 'azPipeline', 'azStorage', 'azContainer', 'azOutputFolder', 'azModel', 'azTimeout', 'azGhToken', 'azBatchEndpoint', 'batchPoolFilter', 'auditPipelineName', 'auditOutputFolder', 'auditLevel', 'bbGenRubricPipeline', 'bbAutoRunPipeline', 'bbRubricOutputFolder', 'bbBugBashOutputFolder'];
+    const settingIds = ['azSub', 'azRg', 'azFactory', 'azPipeline', 'azStorage', 'azContainer', 'azOutputFolder', 'azModel', 'azTimeout', 'azGhToken', 'azBatchEndpoint', 'batchPoolFilter', 'auditPipelineName', 'auditOutputFolder', 'auditLevel', 'bbGenRubricPipeline', 'bbAutoRunPipeline', 'bbRubricOutputFolder', 'bbBugBashOutputFolder', 'bbPromptsFolder'];
     const settings = {};
     for (const id of settingIds) { const el = document.getElementById(id); if (el) settings[id] = el.value; }
     const tasks = [];

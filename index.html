@@ -303,6 +303,9 @@
         <div class="fg"><label>Rubric Output Folder</label><input id="bbRubricOutputFolder" value="data_processing_demo/owen/generate-case/rubric"></div>
         <div class="fg"><label>Bug Bash Output Folder</label><input id="bbBugBashOutputFolder" value="data_processing_demo/owen/generate-case/bugbash"></div>
       </div>
+      <div class="fg" style="margin-top:4px">
+        <label>Prompts Output Folder (MD files)</label><input id="bbPromptsFolder" value="data_processing_demo/owen/generate-case/prompts" placeholder="e.g. data_processing_demo/owen/generate-case/prompts">
+      </div>
       <div class="fg" style="margin-top:8px">
         <label>Auto-trigger auto_run_bugbash after gen_rubric completes</label>
         <label style="font-weight:400;display:flex;align-items:center;gap:6px;cursor:pointer">
@@ -321,6 +324,7 @@
   <div class="btn-bar">
     <button class="btn btn-primary" id="btnGenRubric" onclick="window._app.triggerBugBashGenRubric()">🚀 Step 1: Trigger Gen Rubric</button>
     <button class="btn btn-purple" id="btnAutoRun" onclick="window._app.triggerBugBashAutoRun()" disabled>🔄 Step 2: Trigger Auto Run Bug Bash</button>
+    <button class="btn btn-ghost" onclick="window._app.exportPromptsAsMd()">📄 Export Prompts as MD</button>
     <button class="btn btn-ghost" onclick="window._app.resetBugBash()">Reset</button>
   </div>
 

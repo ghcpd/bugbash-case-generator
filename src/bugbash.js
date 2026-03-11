@@ -432,3 +432,47 @@ export function resetBugBash() {
   document.getElementById('btnAutoRun').disabled = true;
   toast('Bug Bash reset');
 }
+
+/* ==================== Export Prompts as Markdown ==================== */
+
+export async function exportPromptsAsMd() {
+  const selected = _bbCases.filter(c => c.selected && c.data && !c.data._error);
+  if (!selected.length) { alert('Select at least one valid case'); return; }
+
+  const mdFolder = document.getElementById('bbPromptsFolder').value.trim();
+  if (!mdFolder) { alert('Set Prompts Output Folder first'); return; }
+
+  const container = document.getElementById('azContainer').value.trim();
+  const storageAccount = document.getElementById('azStorage').value.trim();
+  const baseUrl = `https://${storageAccount}.blob.core.windows.net/${container}`;
+  const headers = { ...blobHeaders(), 'x-ms-blob-type': 'BlockBlob', 'Content-Type': 'text/markdown; charset=utf-8' };
+
+  const statusEl = document.getElementById('bbProgress');
+  statusEl.innerHTML = `<div class="status-banner show" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted)"><span class="spin"></span> Uploading ${selected.length} prompt(s) as Markdown…</div>`;
+
+  let ok = 0, fail = 0;
+  const errors = [];
+  for (const c of selected) {
+    const instanceId = c.data.instance_id || c.baseName;
+    const issueText = c.data.issue_text || '';
+    const mdContent = `# ${instanceId}\n\n${issueText}`;
+    const blobPath = `${mdFolder}/${instanceId}.md`;
+    const url = baseUrl + '/' + encodeURIComponent(blobPath).replace(/%2F/g, '/');
+
+    try {
+      const resp = await fetch(url, { method: 'PUT', headers, body: mdContent });
+      if (!resp.ok) { let m = `HTTP ${resp.status}`; try { m = await resp.text(); } catch {} throw new Error(m); }
+      ok++;
+    } catch (e) {
+      fail++;
+      errors.push(`${instanceId}: ${e.message}`);
+    }
+  }
+
+  if (fail === 0) {
+    statusEl.innerHTML = `<div class="status-banner show ok">✓ Exported ${ok} prompt(s) to <code>${esc(mdFolder)}/</code></div>`;
+    toast(`${ok} prompts exported`);
+  } else {
+    statusEl.innerHTML = `<div class="status-banner show err">Exported ${ok}, failed ${fail}. Errors: ${errors.slice(0, 3).map(e => esc(e)).join('; ')}${errors.length > 3 ? '…' : ''}</div>`;
+  }
+}

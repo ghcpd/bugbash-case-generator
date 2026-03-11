@@ -10,7 +10,7 @@ import { refreshRuns, loadActivities, viewActivityOutput, cancelRun, backfillRun
 import { listBatchJobs, renderBatchTasks, loadBatchTasks, viewBatchFile, refreshModal } from './batch.js';
 import { refreshBlobs, previewBlob } from './results.js';
 import { loadAuditCases, toggleAuditCase, selectAllAudit, selectNoneAudit, runQuickAudit, triggerAuditPipeline, loadAuditResults, previewAuditResult } from './audit.js';
-import { loadBugBashCases, toggleBBCase, viewBBCase, bbSelectAll, bbSelectNone, bbSelectWithTar, triggerBugBashGenRubric, triggerBugBashAutoRun, loadPipelineDefinition, resetBugBash } from './bugbash.js';
+import { loadBugBashCases, toggleBBCase, viewBBCase, bbSelectAll, bbSelectNone, bbSelectWithTar, triggerBugBashGenRubric, triggerBugBashAutoRun, loadPipelineDefinition, resetBugBash, exportPromptsAsMd } from './bugbash.js';
 import { openModal, closeModal, copyModalContent } from './modal.js';
 import { saveState, loadState, autoSave } from './persistence.js';
 
@@ -25,7 +25,7 @@ window._app = {
   listBatchJobs, renderBatchTasks, loadBatchTasks, viewBatchFile, refreshModal,
   refreshBlobs, previewBlob,
   loadAuditCases, toggleAuditCase, selectAllAudit, selectNoneAudit, runQuickAudit, triggerAuditPipeline, loadAuditResults, previewAuditResult,
-  loadBugBashCases, toggleBBCase, viewBBCase, bbSelectAll, bbSelectNone, bbSelectWithTar, triggerBugBashGenRubric, triggerBugBashAutoRun, loadPipelineDefinition, resetBugBash,
+  loadBugBashCases, toggleBBCase, viewBBCase, bbSelectAll, bbSelectNone, bbSelectWithTar, triggerBugBashGenRubric, triggerBugBashAutoRun, loadPipelineDefinition, resetBugBash, exportPromptsAsMd,
   openModal, closeModal, copyModalContent,
   saveState,
 };
