@@ -1,0 +1,216 @@
+import { toast, esc, copyText, fmtDuration, fmtTime, statusBadge, goStep } from './utils.js';
+import { azFetch, blobBaseUrl, blobHeaders, corsErrorHtml } from './azure.js';
+import { openModal } from './modal.js';
+
+let _autoRefreshTimer = null;
+let _activityCache = {};
+let _runsCache = [];
+
+export function getRunsCache() { return _runsCache; }
+
+export async function refreshRuns() {
+  const el = document.getElementById('runsContent');
+  el.innerHTML = '<p class="empty"><span class="spin"></span> Loading…</p>';
+  document.getElementById('activityDetail').innerHTML = '';
+  try {
+    const data = await azFetch('POST', '/queryPipelineRuns?api-version=2018-06-01', {
+      lastUpdatedAfter: new Date(Date.now() - 7 * 86400000).toISOString(),
+      lastUpdatedBefore: new Date(Date.now() + 86400000).toISOString(),
+      filters: [{ operand: 'PipelineName', operator: 'Equals', values: [document.getElementById('azPipeline').value.trim()] }],
+      orderBy: [{ orderBy: 'RunStart', order: 'DESC' }],
+    });
+    const runs = data.value || [];
+    _runsCache = runs;
+    if (!runs.length) { el.innerHTML = '<p class="empty">No runs found (last 7 days)</p>'; return; }
+
+    let h = `<table class="rtable"><tr><th>Run ID</th><th>Status</th><th>Started</th><th>Duration</th><th>Cases</th><th></th><th></th></tr>`;
+    for (const r of runs.slice(0, 25)) {
+      const rid = r.runId || '', sid = rid.substring(0, 8);
+      const pc = r.parameters?.repo_list ? (() => { try { return JSON.parse(r.parameters.repo_list).length + ' cases'; } catch { return '?'; } })() : '-';
+      const cancel = (r.status === 'InProgress' || r.status === 'Queued')
+        ? `<button class="btn-del" style="color:var(--red)" onclick="event.stopPropagation();window._app.cancelRun('${rid}')">Cancel</button>` : '';
+      const backfill = (r.status === 'Failed' || r.status === 'Succeeded') && r.parameters?.repo_list
+        ? `<button class="btn-sm" style="font-size:10px" onclick="event.stopPropagation();window._app.backfillRun('${esc(rid)}')">🔄 Backfill</button>` : '';
+      h += `<tr class="clickable" onclick="window._app.loadActivities('${rid}')">
+        <td><span style="font-family:monospace;color:var(--accent);font-size:11px;word-break:break-all" title="${esc(rid)}">${esc(rid)}</span>
+          <button class="btn-copy" onclick="event.stopPropagation();window._app.copyText('${esc(rid)}','Run ID')" title="Copy Run ID">📋</button></td>
+        <td>${statusBadge(r.status)}</td>
+        <td style="font-size:11px">${fmtTime(r.runStart)}</td>
+        <td style="font-size:11px">${fmtDuration(r.runStart, r.runEnd)}</td>
+        <td style="font-size:11px;color:var(--muted)">${esc(pc)}</td>
+        <td>${cancel}${backfill}</td>
+        <td><button class="btn-copy" onclick="event.stopPropagation();window._app.copyText(JSON.stringify(${esc(JSON.stringify(r))},null,2),'Run JSON')" title="Copy run details">{ }</button></td>
+      </tr>`;
+    }
+    h += '</table>';
+    if (runs.length > 25) h += `<p style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">Showing 25 of ${runs.length}</p>`;
+    el.innerHTML = h;
+  } catch (e) { el.innerHTML = `<p class="empty" style="color:var(--red)">Error: ${esc(e.message)}</p>`; }
+}
+
+export async function loadActivities(runId) {
+  const el = document.getElementById('activityDetail');
+  el.innerHTML = `<div class="act-panel"><div class="act-head"><span class="spin"></span> Loading activities…</div></div>`;
+  try {
+    const data = await azFetch('POST', `/pipelineruns/${encodeURIComponent(runId)}/queryActivityruns?api-version=2018-06-01`,
+      { lastUpdatedAfter: '2024-01-01T00:00:00Z', lastUpdatedBefore: new Date(Date.now() + 86400000).toISOString() });
+    const acts = data.value || [];
+    _activityCache[runId] = acts;
+    if (!acts.length) { el.innerHTML = '<div class="act-panel"><div class="act-head">No activities</div></div>'; return; }
+
+    let nS = 0, nF = 0, nR = 0, nQ = 0;
+    for (const a of acts) {
+      const s = (a.status || '').toLowerCase();
+      if (s === 'succeeded') nS++; else if (s === 'failed') nF++; else if (s === 'inprogress') nR++; else nQ++;
+    }
+    const total = acts.length, pctDone = total ? Math.round((nS + nF) / total * 100) : 0;
+    const barColor = nF > 0 ? `linear-gradient(90deg,var(--green) ${nS / total * 100}%,var(--red) ${nS / total * 100}% ${(nS + nF) / total * 100}%,var(--surface3) ${(nS + nF) / total * 100}%)`
+      : `linear-gradient(90deg,var(--green) ${pctDone}%,var(--surface3) ${pctDone}%)`;
+
+    let h = `<div class="act-panel">
+      <div class="act-head">
+        <span style="flex:1">Activities — <code style="color:var(--accent);cursor:pointer" onclick="window._app.copyText('${esc(runId)}','Run ID')">${esc(runId.substring(0, 8))}…</code>
+          <button class="btn-copy" onclick="window._app.copyText('${esc(runId)}','Run ID')">📋</button></span>
+        <div class="act-progress">
+          ${nS ? `<span class="ap-s">✓ ${nS}</span>` : ''}
+          ${nF ? `<span class="ap-f">✕ ${nF}</span>` : ''}
+          ${nR ? `<span class="ap-r">◐ ${nR}</span>` : ''}
+          ${nQ ? `<span class="ap-q">○ ${nQ}</span>` : ''}
+          <span style="color:var(--text-sec)">${pctDone}%</span>
+        </div>
+      </div>
+      <div style="padding:0 16px 0"><div class="progress-bar"><div class="progress-fill" style="width:${pctDone}%;background:${barColor}"></div></div></div>
+      <table class="act-table"><tr><th>Name</th><th>Status</th><th>Duration</th><th>Batch Task</th><th>Error</th><th>Actions</th></tr>`;
+
+    for (let i = 0; i < acts.length; i++) {
+      const a = acts[i];
+      const err = a.error?.message || '';
+      let batchTaskId = '-';
+      try { if (a.output?.executionDetails?.length) { batchTaskId = a.output.executionDetails[0].taskId || '-'; } } catch {}
+      const exitCode = a.output?.exitcode;
+      const exitBadge = exitCode !== undefined ? `<span style="font-size:10px;color:${exitCode === 0 ? 'var(--green)' : 'var(--red)'}"> (exit:${exitCode})</span>` : '';
+
+      h += `<tr>
+        <td style="font-size:11px">${esc(a.activityName || '-')}</td>
+        <td>${statusBadge(a.status)}${exitBadge}</td>
+        <td style="font-size:11px">${fmtDuration(a.activityRunStart, a.activityRunEnd)}</td>
+        <td>${batchTaskId !== '-' ? `<span class="batch-tid">${esc(batchTaskId)}</span> <button class="btn-copy" onclick="event.stopPropagation();window._app.copyText('${esc(batchTaskId)}','Task ID')">📋</button>` : `<span style="color:var(--muted)">-</span>`}</td>
+        <td>${err ? `<span class="err-text" title="${esc(err)}">${esc(err.substring(0, 120))}${err.length > 120 ? '…' : ''}</span> <button class="btn-copy" onclick="event.stopPropagation();window._app.copyText(\`${esc(err.replace(/`/g, "'"))}\`,'Error')">📋</button>` : '<span style="color:var(--muted)">-</span>'}</td>
+        <td class="act-actions">
+          <button class="btn-log json" onclick="event.stopPropagation();window._app.viewActivityOutput(${i},'${esc(runId)}')" title="View full output JSON">{ }</button>
+          ${err ? `<button class="btn-log stderr" onclick="event.stopPropagation();window._app.copyText(\`${esc(err.replace(/`/g, "'"))}\`,'Error')" title="Copy error">⚠</button>` : ''}
+        </td></tr>`;
+    }
+    h += '</table></div>';
+    el.innerHTML = h;
+  } catch (e) { el.innerHTML = `<div class="act-panel"><div class="act-head" style="color:var(--red)">Error: ${esc(e.message)}</div></div>`; }
+}
+
+export function viewActivityOutput(idx, runId) {
+  const acts = _activityCache[runId];
+  if (!acts || !acts[idx]) return;
+  const a = acts[idx];
+  const title = `Output — ${a.activityName || 'Activity ' + idx}`;
+  const content = JSON.stringify(a.output || {}, null, 2);
+  openModal(title, content);
+}
+
+export async function cancelRun(runId) {
+  if (!confirm('Cancel this run?')) return;
+  try { await azFetch('POST', `/pipelineruns/${encodeURIComponent(runId)}/cancel?api-version=2018-06-01`); toast('Cancel requested'); setTimeout(refreshRuns, 1500); }
+  catch (e) { alert('Failed: ' + e.message); }
+}
+
+export async function backfillRun(runId) {
+  const run = _runsCache.find(r => r.runId === runId);
+  if (!run?.parameters?.repo_list) { alert('No repo_list found in run parameters'); return; }
+  let repoList;
+  try { repoList = JSON.parse(run.parameters.repo_list); } catch { alert('Cannot parse repo_list'); return; }
+  if (!repoList.length) { alert('repo_list is empty'); return; }
+
+  const el = document.getElementById('activityDetail');
+  el.innerHTML = `<div class="act-panel"><div class="act-head"><span class="spin"></span> Checking blob storage for completed cases…</div></div>`;
+
+  try {
+    const folder = document.getElementById('azOutputFolder').value.trim();
+    const prefix = folder + '/jsonl/';
+    const url = blobBaseUrl() + `?restype=container&comp=list&prefix=${encodeURIComponent(prefix)}&delimiter=`;
+    const resp = await fetch(url, { headers: blobHeaders() });
+    if (!resp.ok) throw new Error('Blob listing failed: HTTP ' + resp.status);
+    const xml = await resp.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, 'text/xml');
+    const blobs = doc.querySelectorAll('Blob');
+
+    const existingKeys = new Set();
+    blobs.forEach(b => {
+      const name = b.querySelector('Name')?.textContent || '';
+      const m = name.match(/([^/]+)-synthetic-\d+-(\d+)\.jsonl$/);
+      if (m) existingKeys.add(m[1] + '::' + m[2]);
+    });
+
+    const missing = [];
+    for (const item of repoList) {
+      const repoUrl = item.repo || '';
+      const m2 = repoUrl.match(/github\.com[/:]([^/]+)\/([^/.]+)/);
+      if (!m2) continue;
+      const slug = m2[1] + '__' + m2[2];
+      const idx = item.case_index ?? 0;
+      if (!existingKeys.has(slug + '::' + idx)) missing.push(item);
+    }
+
+    if (!missing.length) {
+      el.innerHTML = `<div class="act-panel"><div class="act-head" style="color:var(--green)">✓ All ${repoList.length} cases already exist — no backfill needed</div></div>`;
+      toast('All cases complete!');
+      return;
+    }
+
+    const repoMap = {};
+    for (const item of missing) {
+      const key = item.repo; if (!repoMap[key]) repoMap[key] = [];
+      repoMap[key].push(item.case_index ?? 0);
+    }
+    let h = `<div class="act-panel">
+      <div class="act-head">
+        <span style="flex:1">Backfill: ${missing.length} of ${repoList.length} cases missing</span>
+        <button class="btn btn-purple" style="padding:5px 14px;font-size:12px" onclick="window._app.doBackfill()">🔄 Trigger Backfill (${missing.length} cases)</button>
+      </div>
+      <table class="act-table"><tr><th>Repository</th><th>Missing Indices</th><th>Category</th></tr>`;
+    for (const [repo, indices] of Object.entries(repoMap)) {
+      const cat = missing.find(m => m.repo === repo)?.category || '-';
+      h += `<tr><td style="font-family:monospace;font-size:11px;color:var(--cyan)">${esc(repo.replace('https://github.com/', ''))}</td>
+        <td style="font-size:11px">${indices.sort((a, b) => a - b).join(', ')}</td>
+        <td style="font-size:11px;color:var(--muted)">${esc(cat)}</td></tr>`;
+    }
+    h += '</table></div>';
+    el.innerHTML = h;
+
+    window._backfillList = missing;
+    window._backfillRunParams = run.parameters;
+  } catch (e) {
+    el.innerHTML = `<div class="act-panel"><div class="act-head" style="color:var(--red)">${corsErrorHtml(e.message)}</div></div>`;
+  }
+}
+
+export async function doBackfill() {
+  if (!window._backfillList?.length) { alert('No backfill data'); return; }
+  const params = { repo_list: window._backfillList };
+  const rp = window._backfillRunParams || {};
+  if (rp.github_token) params.github_token = rp.github_token;
+  if (rp.copilot_model) params.copilot_model = rp.copilot_model;
+  if (rp.copilot_timeout) params.copilot_timeout = rp.copilot_timeout;
+  try {
+    const data = await azFetch('POST', `/pipelines/${encodeURIComponent(document.getElementById('azPipeline').value.trim())}/createRun?api-version=2018-06-01`, params);
+    toast(`Backfill triggered! Run ID: ${data.runId.substring(0, 8)}…`);
+    setTimeout(refreshRuns, 1500);
+  } catch (e) { alert('Backfill trigger failed: ' + e.message); }
+}
+
+export function toggleAutoRefresh() {
+  if (document.getElementById('autoRefresh').checked) {
+    refreshRuns();
+    _autoRefreshTimer = setInterval(refreshRuns, 15000);
+  } else {
+    if (_autoRefreshTimer) { clearInterval(_autoRefreshTimer); _autoRefreshTimer = null; }
+  }
+}
