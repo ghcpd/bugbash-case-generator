@@ -12,6 +12,7 @@ import { refreshBlobs, previewBlob } from './results.js';
 import { loadAuditCases, toggleAuditCase, selectAllAudit, selectNoneAudit, runQuickAudit, triggerAuditPipeline, loadAuditResults, previewAuditResult } from './audit.js';
 import { loadBugBashCases, toggleBBCase, viewBBCase, bbSelectAll, bbSelectNone, bbSelectWithTar, triggerBugBashGenRubric, confirmTriggerGenRubric, getGenRubricPayload, triggerBugBashAutoRun, loadPipelineDefinition, resetBugBash, exportPromptsAsMd } from './bugbash.js';
 import { openModal, closeModal, copyModalContent } from './modal.js';
+import { loadDashboard } from './dashboard.js';
 import { saveState, loadState, autoSave } from './persistence.js';
 
 // Expose functions globally for inline onclick handlers
@@ -27,6 +28,7 @@ window._app = {
   loadAuditCases, toggleAuditCase, selectAllAudit, selectNoneAudit, runQuickAudit, triggerAuditPipeline, loadAuditResults, previewAuditResult,
   loadBugBashCases, toggleBBCase, viewBBCase, bbSelectAll, bbSelectNone, bbSelectWithTar, triggerBugBashGenRubric, confirmTriggerGenRubric, getGenRubricPayload, triggerBugBashAutoRun, loadPipelineDefinition, resetBugBash, exportPromptsAsMd,
   openModal, closeModal, copyModalContent,
+  loadDashboard,
   saveState,
 };
 
@@ -51,5 +53,6 @@ try {
     if (tab === 'monitor') setTimeout(refreshMonitor, 300);
     if (tab === 'results') setTimeout(refreshBlobs, 300);
     if (tab === 'audit') setTimeout(loadAuditCases, 300);
+    if (tab === 'dashboard') setTimeout(loadDashboard, 300);
   }
 } catch {}

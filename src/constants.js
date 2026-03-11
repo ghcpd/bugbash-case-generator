@@ -14,7 +14,7 @@ export const CATEGORIES = [
 
 export const DIFFS = ['', 'L1', 'L2', 'L3', 'L4'];
 
-export const STEPS = ['configure', 'monitor', 'results', 'audit', 'bugbash'];
+export const STEPS = ['configure', 'monitor', 'results', 'audit', 'bugbash', 'dashboard'];
 
 export const RUN_TYPES = {
   generate: { pipelineInputId: 'azPipeline', label: 'Generate pipeline', badgeClass: 'badge-generate' },

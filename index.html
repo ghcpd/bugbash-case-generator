@@ -37,6 +37,9 @@
   <div class="fstep" onclick="window._app.goStep('bugbash')" id="step-bugbash">
     <span class="sn">5</span><span class="sl">Bug Bash</span>
   </div>
+  <div class="fstep" onclick="window._app.goStep('dashboard')" id="step-dashboard">
+    <span class="sn">6</span><span class="sl">Dashboard</span>
+  </div>
 </div>
 
 <!-- ════════ Main ════════ -->
@@ -380,6 +383,20 @@
   <!-- Pipeline Status -->
   <div id="bbPipelineStatus" style="margin-top:16px"></div>
 
+</div>
+
+<!-- ── Panel: Dashboard ── -->
+<div class="tab-panel" id="panel-dashboard">
+  <div class="card">
+    <div class="card-head">
+      <span class="icon">📊</span>
+      <span style="flex:1">Data Analytics Dashboard</span>
+      <button class="btn-sm" onclick="window._app.loadDashboard()">🔄 Refresh</button>
+    </div>
+    <div class="card-body">
+      <div id="dashboardContent"><p class="empty">Click <b>Refresh</b> to load JSONL data and generate analytics</p></div>
+    </div>
+  </div>
 </div>
 
 </div><!-- /main -->
