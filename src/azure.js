@@ -60,7 +60,7 @@ export async function setCorsOnStorage() {
       properties: {
         cors: {
           corsRules: [{
-            allowedOrigins: ['*'], allowedMethods: ['GET', 'HEAD', 'OPTIONS'],
+            allowedOrigins: ['*'], allowedMethods: ['GET', 'HEAD', 'PUT', 'OPTIONS'],
             allowedHeaders: ['Authorization', 'x-ms-version', 'x-ms-date', 'x-ms-blob-type', 'Content-Type'],
             exposedHeaders: ['x-ms-meta-*', 'Content-Length', 'Content-Type'], maxAgeInSeconds: 3600,
           }],
