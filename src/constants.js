@@ -19,6 +19,8 @@ export const STEPS = ['configure', 'monitor', 'results', 'audit', 'bugbash', 'da
 export const RUN_TYPES = {
   generate: { pipelineInputId: 'azPipeline', label: 'Generate pipeline', badgeClass: 'badge-generate' },
   audit: { pipelineInputId: 'auditPipelineName', label: 'Audit pipeline', badgeClass: 'badge-audit' },
+  genRubric: { pipelineInputId: 'bbGenRubricPipeline', label: 'Gen Rubric pipeline', badgeClass: 'badge-gen-rubric' },
+  autoRunBugbash: { pipelineInputId: 'bbAutoRunPipeline', label: 'Auto Run Bug Bash pipeline', badgeClass: 'badge-auto-run' },
 };
 
 export const STORAGE_KEY = 'swebench_prompt_gen';

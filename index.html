@@ -181,12 +181,14 @@
       <button class="btn-sm" onclick="window._app.refreshMonitor()">⟳ Refresh</button>
     </div>
     <div class="card-body">
-      <div class="monitor-summary">Configured pipelines: <code id="monitorGeneratePipelineName">bug_bash_batch_generate_pipeline</code> and <code id="monitorAuditPipelineName">bug_bash_audit_case_pipeline</code>. This filter only matches ADF pipeline runs, not Batch job IDs or task IDs.</div>
+      <div class="monitor-summary">Configured pipelines: <code id="monitor_generate_PipelineName">bug_bash_batch_generate_pipeline</code>, <code id="monitor_audit_PipelineName">bug_bash_audit_case_pipeline</code>, <code id="monitor_genRubric_PipelineName">gen_rubric</code>, <code id="monitor_autoRunBugbash_PipelineName">auto_run_bugbash</code>. This filter only matches ADF pipeline runs, not Batch job IDs or task IDs.</div>
       <div class="monitor-toolbar">
         <select id="monitorPipelineFilter" onchange="window._app.renderCombinedRuns()">
           <option value="all">All pipelines</option>
           <option value="generate">Generate only</option>
           <option value="audit">Audit only</option>
+          <option value="genRubric">Gen Rubric only</option>
+          <option value="autoRunBugbash">Auto Run Bug Bash only</option>
         </select>
         <select id="monitorStatusFilter" onchange="window._app.renderCombinedRuns()">
           <option value="all">All statuses</option>

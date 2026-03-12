@@ -6,16 +6,16 @@ import { clearBatchLinks, setBatchLinkStatus, renderActiveBatchTasksFallback } f
 
 let _autoRefreshTimer = null;
 let _activityCache = {};
-let _runsCache = { generate: [], audit: [] };
+let _runsCache = { generate: [], audit: [], genRubric: [], autoRunBugbash: [] };
 
 function getRunType(kind) { return RUN_TYPES[kind] || RUN_TYPES.generate; }
 function getPipelineName(kind) { return document.getElementById(getRunType(kind).pipelineInputId).value.trim(); }
 
 function syncMonitorLabels() {
-  const gen = document.getElementById('monitorGeneratePipelineName');
-  const audit = document.getElementById('monitorAuditPipelineName');
-  if (gen) gen.textContent = getPipelineName('generate') || '-';
-  if (audit) audit.textContent = getPipelineName('audit') || '-';
+  for (const [kind, cfg] of Object.entries(RUN_TYPES)) {
+    const el = document.getElementById(`monitor_${kind}_PipelineName`);
+    if (el) el.textContent = getPipelineName(kind) || '-';
+  }
 }
 
 function getRunWorkload(run) {
@@ -51,7 +51,7 @@ export function renderCombinedRuns() {
   const statusFilter = document.getElementById('monitorStatusFilter')?.value || 'all';
   const sortMode = document.getElementById('monitorSort')?.value || 'start-desc';
   const query = (document.getElementById('monitorSearch')?.value || '').trim().toLowerCase();
-  const combined = [...(_runsCache.generate || []), ...(_runsCache.audit || [])];
+  const combined = Object.values(_runsCache).flat();
   if (!combined.length) { el.innerHTML = '<p class="empty">No pipeline runs loaded yet</p>'; if (detail) detail.innerHTML = ''; return; }
 
   let rows = combined.filter(run => {
@@ -190,7 +190,7 @@ export async function cancelRun(runId, kind = 'generate') {
 }
 
 export async function backfillRun(runId) {
-  const allRuns = [...(_runsCache.generate || []), ...(_runsCache.audit || [])];
+  const allRuns = Object.values(_runsCache).flat();
   const run = allRuns.find(r => r.runId === runId);
   if (!run?.parameters?.repo_list) { alert('No repo_list found in run parameters'); return; }
   let repoList;
@@ -289,9 +289,9 @@ export async function refreshMonitor() {
   const el = document.getElementById('runsContent');
   el.innerHTML = '<p class="empty"><span class="spin"></span> Loading…</p>';
   try {
-    const [generateRuns, auditRuns] = await Promise.all([fetchRuns('generate'), fetchRuns('audit')]);
-    _runsCache.generate = generateRuns;
-    _runsCache.audit = auditRuns;
+    const kinds = Object.keys(RUN_TYPES);
+    const results = await Promise.all(kinds.map(k => fetchRuns(k)));
+    kinds.forEach((k, i) => { _runsCache[k] = results[i]; });
     renderCombinedRuns();
   } catch (e) { el.innerHTML = `<p class="empty" style="color:var(--red)">Error: ${esc(e.message)}</p>`; }
 }

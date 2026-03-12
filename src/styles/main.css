@@ -157,6 +157,8 @@ textarea{resize:vertical}
 .badge-queued,.badge-cancelling,.badge-cancelled{background:rgba(138,136,134,.15);color:var(--muted)}
 .badge-generate{background:var(--cyan-dim);color:var(--accent-dark)}
 .badge-audit{background:var(--purple-dim);color:var(--purple)}
+.badge-gen-rubric{background:var(--orange-dim);color:var(--orange)}
+.badge-auto-run{background:var(--green-dim);color:var(--green)}
 
 /* ── Activity panel ── */
 .monitor-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
