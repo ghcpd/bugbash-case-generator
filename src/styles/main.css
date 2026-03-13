@@ -244,6 +244,68 @@ textarea{resize:vertical}
 @keyframes sp{to{transform:rotate(360deg)}}
 .empty{text-align:center;padding:28px;color:var(--muted);font-size:13px}
 
+/* ── Review / Diff View ── */
+.rv-tabs{display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid var(--border)}
+.rv-tab{padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:none;
+  color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.rv-tab:hover{color:var(--text)}
+.rv-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.rv-summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0 12px;font-size:12px}
+.rv-summary-count{font-weight:700;color:var(--text);font-size:13px}
+.rv-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--r);
+  font-size:11px;font-weight:600;gap:4px}
+.rv-badge-cat{background:var(--purple-dim);color:var(--purple)}
+.rv-badge-diff{background:var(--accent-dim);color:var(--accent)}
+.rv-badge-sub{background:var(--orange-dim);color:var(--orange)}
+.rv-badge-mut{background:var(--cyan-dim);color:var(--accent-dark)}
+.rv-case{border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:12px;
+  background:var(--surface);overflow:hidden;box-shadow:var(--shadow)}
+.rv-case-header{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;
+  background:var(--surface2);border-bottom:1px solid var(--border);transition:background .1s;flex-wrap:wrap}
+.rv-case-header:hover{background:var(--surface3)}
+.rv-case-title{font-weight:700;font-size:13px;color:var(--text);font-family:'Cascadia Code','Consolas',monospace}
+.rv-case-repo{font-size:12px;color:var(--accent)}
+.rv-case-badges{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.rv-case-toggle{font-size:16px;color:var(--muted);font-weight:600;transition:transform .2s;margin-left:8px}
+.rv-case-body.collapsed{display:none}
+.rv-case-body.collapsed ~ .rv-case-header .rv-case-toggle,
+.rv-case-header:has(+ .rv-case-body.collapsed) .rv-case-toggle{transform:rotate(0deg)}
+.rv-case-header:has(+ .rv-case-body:not(.collapsed)) .rv-case-toggle{transform:rotate(90deg)}
+.rv-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+.rv-section:last-child{border-bottom:none}
+.rv-section-title{font-size:12px;font-weight:700;color:var(--text-sec);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.rv-issue-text{font-size:12px;line-height:1.6;color:var(--text);white-space:pre-wrap;max-height:200px;overflow:auto;
+  background:var(--surface2);padding:10px 12px;border-radius:var(--r);border:1px solid var(--border)}
+.rv-mutation{font-size:12px;color:var(--text);line-height:1.5}
+.rv-mutation-file{font-size:11px;color:var(--muted);margin-top:4px}
+.rv-mutation-file code{background:var(--surface3);padding:2px 6px;border-radius:var(--r);font-size:11px;color:var(--accent);border:1px solid var(--border)}
+.rv-diff-stats{font-weight:400;font-size:11px;margin-left:6px}
+.rv-stat-add{color:var(--green)}.rv-stat-del{color:var(--red)}
+.diff-file{border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+.diff-file-header{padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text-sec)}
+.diff-file-name{font-family:'Cascadia Code','Consolas',monospace;font-size:12px}
+.diff-table{width:100%;border-collapse:collapse;font-family:'Cascadia Code','Consolas',monospace;font-size:11px;line-height:1.5;table-layout:fixed}
+.diff-table td{padding:0 8px;vertical-align:top}
+.diff-ln{width:44px;min-width:44px;color:var(--muted);text-align:right;user-select:none;padding-right:8px;border-right:1px solid var(--border);font-size:11px}
+.diff-code{white-space:pre-wrap;word-break:break-all;padding-left:4px}
+.diff-prefix{display:inline-block;width:12px;user-select:none;color:var(--muted)}
+.diff-hunk-row{background:var(--accent-dim)}
+.diff-hunk-text{font-size:11px;color:var(--accent);padding:4px 8px;font-style:italic}
+.diff-add{background:rgba(16,124,16,.08)}
+.diff-add .diff-ln{background:rgba(16,124,16,.12);color:var(--green)}
+.diff-add .diff-prefix{color:var(--green)}
+.diff-del{background:rgba(209,52,56,.08)}
+.diff-del .diff-ln{background:rgba(209,52,56,.12);color:var(--red)}
+.diff-del .diff-prefix{color:var(--red)}
+.rv-test-group{margin-bottom:8px}
+.rv-test-label{font-size:11px;font-weight:700;display:inline-block;margin-bottom:4px}
+.rv-test-fail{color:var(--red)}.rv-test-pass{color:var(--green)}
+.rv-test-list{list-style:none;padding:0;margin:0}
+.rv-test-list li{font-size:11px;font-family:'Cascadia Code','Consolas',monospace;color:var(--text);
+  padding:3px 8px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.rv-test-list li:last-child{border-bottom:none}
+.rv-quality{font-size:12px;color:var(--text)}
+
 @media(max-width:700px){
   .header{padding:0 12px;height:40px}.flow{padding:0 12px;flex-wrap:wrap;height:auto}
   .main{padding:16px}.row-2,.row-3,.row-4{grid-template-columns:1fr}

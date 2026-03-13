@@ -1,6 +1,11 @@
 import { toast, esc, fmtBytes, fmtTime } from './utils.js';
 import { blobBaseUrl, blobHeaders, corsErrorHtml } from './azure.js';
 import { openModal } from './modal.js';
+import { renderReview } from './review.js';
+
+// Cache the last loaded JSONL text for tab switching
+let _lastPreviewText = '';
+let _lastPreviewName = '';
 
 export async function refreshBlobs() {
   const el = document.getElementById('blobContent'), preview = document.getElementById('blobPreview');
@@ -48,15 +53,56 @@ export async function previewBlob(blobName) {
     const resp = await fetch(url, { headers: blobHeaders() });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const text = await resp.text();
-    let display = text;
-    if (blobName.endsWith('.jsonl')) { try { display = text.trim().split('\n').map(line => JSON.stringify(JSON.parse(line), null, 2)).join('\n\n---\n\n'); } catch {} }
-    el.innerHTML = `<div class="blob-preview">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="font-weight:600;font-size:12px;color:var(--accent);flex:1">${esc(blobName.split('/').pop())}</span>
-        <button class="btn-copy" onclick="window._app.clipboardWrite(document.getElementById('blobText').textContent).then(()=>window._app.toast('Content copied!'))">📋 Copy</button>
-        <button class="btn-sm" onclick="window._app.openModal('${esc(blobName.split('/').pop())}',document.getElementById('blobText').textContent)">⤢ Expand</button>
-      </div>
-      <pre id="blobText">${esc(display)}</pre>
-    </div>`;
+    _lastPreviewText = text;
+    _lastPreviewName = blobName;
+
+    if (blobName.endsWith('.jsonl')) {
+      showPreviewWithTabs(blobName, text, el, 'raw');
+    } else {
+      el.innerHTML = `<div class="blob-preview">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-weight:600;font-size:12px;color:var(--accent);flex:1">${esc(blobName.split('/').pop())}</span>
+          <button class="btn-copy" onclick="window._app.clipboardWrite(document.getElementById('blobText').textContent).then(()=>window._app.toast('Content copied!'))">📋 Copy</button>
+          <button class="btn-sm" onclick="window._app.openModal('${esc(blobName.split('/').pop())}',document.getElementById('blobText').textContent)">⤢ Expand</button>
+        </div>
+        <pre id="blobText">${esc(text)}</pre>
+      </div>`;
+    }
   } catch (e) { el.innerHTML = `<div class="blob-preview"><p style="color:var(--red)">${corsErrorHtml(e.message)}</p></div>`; }
+}
+
+function showPreviewWithTabs(blobName, text, el, activeTab) {
+  const shortName = blobName.split('/').pop();
+  let display = text;
+  try { display = text.trim().split('\n').map(line => JSON.stringify(JSON.parse(line), null, 2)).join('\n\n---\n\n'); } catch {}
+
+  let h = `<div class="blob-preview" style="max-height:none">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:0">
+      <span style="font-weight:600;font-size:12px;color:var(--accent);flex:1">${esc(shortName)}</span>
+      <button class="btn-copy" onclick="window._app.clipboardWrite(document.getElementById('blobText')?.textContent||'').then(()=>window._app.toast('Content copied!'))">📋 Copy</button>
+      <button class="btn-sm" onclick="window._app.openModal('${esc(shortName)}',document.getElementById('blobText')?.textContent||'')">⤢ Expand</button>
+    </div>
+    <div class="rv-tabs">
+      <button class="rv-tab ${activeTab === 'raw' ? 'active' : ''}" onclick="window._app.switchPreviewTab('raw')">Raw</button>
+      <button class="rv-tab ${activeTab === 'review' ? 'active' : ''}" onclick="window._app.switchPreviewTab('review')">🔍 Review</button>
+    </div>
+    <div id="previewTabContent">`;
+
+  if (activeTab === 'raw') {
+    h += `<pre id="blobText" style="max-height:400px;overflow:auto">${esc(display)}</pre>`;
+  } else {
+    h += `<div id="reviewContainer"></div>`;
+  }
+  h += `</div></div>`;
+  el.innerHTML = h;
+
+  if (activeTab === 'review') {
+    renderReview(text, document.getElementById('reviewContainer'));
+  }
+}
+
+export function switchPreviewTab(tab) {
+  const el = document.getElementById('blobPreview');
+  if (!_lastPreviewText || !el) return;
+  showPreviewWithTabs(_lastPreviewName, _lastPreviewText, el, tab);
 }

@@ -8,7 +8,7 @@ import { initSelects, bulkAdd, addRow, updateCount } from './tasks.js';
 import { generate, cpRepoList, resetAll, triggerPipeline } from './generate.js';
 import { refreshMonitor, renderCombinedRuns, openBatchForRun, loadActivities, viewActivityOutput, cancelRun, backfillRun, doBackfill, toggleAutoRefresh } from './monitor.js';
 import { listBatchJobs, renderBatchTasks, loadBatchTasks, viewBatchFile, refreshModal, searchBatchExplorer } from './batch.js';
-import { refreshBlobs, previewBlob } from './results.js';
+import { refreshBlobs, previewBlob, switchPreviewTab } from './results.js';
 import { loadAuditCases, toggleAuditCase, selectAllAudit, selectNoneAudit, runQuickAudit, triggerAuditPipeline, loadAuditResults, previewAuditResult } from './audit.js';
 import { loadBugBashCases, toggleBBCase, viewBBCase, bbSelectAll, bbSelectNone, bbSelectWithTar, triggerBugBashGenRubric, confirmTriggerGenRubric, getGenRubricPayload, triggerBugBashAutoRun, loadPipelineDefinition, resetBugBash, exportPromptsAsMd } from './bugbash.js';
 import { openModal, closeModal, copyModalContent } from './modal.js';
@@ -24,7 +24,7 @@ window._app = {
   generate, cpRepoList, resetAll, triggerPipeline,
   refreshMonitor, renderCombinedRuns, openBatchForRun, loadActivities, viewActivityOutput, cancelRun, backfillRun, doBackfill, toggleAutoRefresh,
   listBatchJobs, renderBatchTasks, loadBatchTasks, viewBatchFile, refreshModal, searchBatchExplorer,
-  refreshBlobs, previewBlob,
+  refreshBlobs, previewBlob, switchPreviewTab,
   loadAuditCases, toggleAuditCase, selectAllAudit, selectNoneAudit, runQuickAudit, triggerAuditPipeline, loadAuditResults, previewAuditResult,
   loadBugBashCases, toggleBBCase, viewBBCase, bbSelectAll, bbSelectNone, bbSelectWithTar, triggerBugBashGenRubric, confirmTriggerGenRubric, getGenRubricPayload, triggerBugBashAutoRun, loadPipelineDefinition, resetBugBash, exportPromptsAsMd,
   openModal, closeModal, copyModalContent,
