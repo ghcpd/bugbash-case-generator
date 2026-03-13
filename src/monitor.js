@@ -2,7 +2,7 @@ import { toast, esc, copyText, fmtDuration, fmtTime, statusBadge, goStep } from 
 import { azFetch, blobBaseUrl, blobHeaders, corsErrorHtml } from './azure.js';
 import { openModal } from './modal.js';
 import { RUN_TYPES } from './constants.js';
-import { clearBatchLinks, setBatchLinkStatus, renderActiveBatchTasksFallback } from './batch.js';
+import { clearBatchLinks, setBatchLinkStatus, linkBatchByTaskIds, renderActiveBatchTasksFallback } from './batch.js';
 
 let _autoRefreshTimer = null;
 let _activityCache = {};
@@ -101,17 +101,33 @@ export function renderCombinedRuns() {
 
 export async function openBatchForRun(runId, kind = 'generate') {
   const cfg = getRunType(kind);
+  const shortId = (runId || '').substring(0, 8);
   const batchLink = document.getElementById('batchLinkStatus');
   if (batchLink) {
-    setBatchLinkStatus(`<span class="spin"></span> Listing currently running Batch tasks in the selected pool for ${esc(cfg.label)} ${esc((runId || '').substring(0, 8))}…`, false);
+    setBatchLinkStatus(`<span class="spin"></span> Fetching Batch task IDs from ADF activities for ${esc(cfg.label)} ${esc(shortId)}…`, false);
     batchLink.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   try {
     clearBatchLinks();
-    await renderActiveBatchTasksFallback(`${cfg.label} ${runId.substring(0, 8)}…`);
-    setBatchLinkStatus(`Showing all currently running Batch tasks in the selected pool for ${esc(cfg.label)} ${esc((runId || '').substring(0, 8))}….`, false);
+    // Fetch activity runs to extract Batch task IDs
+    const data = await azFetch('POST', `/pipelineruns/${encodeURIComponent(runId)}/queryActivityruns?api-version=2018-06-01`,
+      { lastUpdatedAfter: '2024-01-01T00:00:00Z', lastUpdatedBefore: new Date(Date.now() + 86400000).toISOString() });
+    const acts = data.value || [];
+    const taskIds = new Set();
+    for (const a of acts) {
+      try { const tid = a.output?.executionDetails?.[0]?.taskId; if (tid) taskIds.add(tid); } catch {}
+    }
+    if (!taskIds.size) {
+      // No task IDs found in activities — fall back to showing active tasks
+      await renderActiveBatchTasksFallback(`${cfg.label} ${shortId}…`);
+      setBatchLinkStatus(`No Batch task IDs found in ${acts.length} activities for ${esc(cfg.label)} ${esc(shortId)}… (run may still be queued). Showing active tasks instead.`, false);
+      return;
+    }
+    setBatchLinkStatus(`<span class="spin"></span> Found ${taskIds.size} Batch task IDs, linking in Batch Explorer…`, false);
+    const result = await linkBatchByTaskIds(taskIds, `${cfg.label} ${shortId}…`);
+    setBatchLinkStatus(`Linked ${result.matchedTasks} task(s) across ${result.matchedJobs} job(s) for ${esc(cfg.label)} <code>${esc(shortId)}…</code>. Extracted from ${acts.length} ADF activities.`, false);
   } catch (e) {
-    setBatchLinkStatus(`Failed to open Batch view for ${esc(cfg.label)} ${esc((runId || '').substring(0, 8))}…: ${esc(e.message)}`, true);
+    setBatchLinkStatus(`Failed to open Batch view for ${esc(cfg.label)} ${esc(shortId)}…: ${esc(e.message)}`, true);
   }
 }
 

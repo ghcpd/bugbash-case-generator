@@ -84,24 +84,49 @@ export async function setCorsOnStorage() {
 export function batchEndpoint() {
   const ep = document.getElementById('azBatchEndpoint').value.trim();
   if (!ep) throw new Error('Set Batch Account Endpoint in Settings');
-  return ep.startsWith('https://') ? ep : 'https://' + ep;
+  return ep.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+}
+
+function needsBatchProxy() {
+  const h = location.hostname;
+  return h !== 'localhost' && h !== '127.0.0.1' && !location.protocol.startsWith('file');
 }
 
 function batchHeaders() {
   const t = getToken('batch');
-  return { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json', 'ocp-date': new Date().toUTCString() };
+  const hdrs = { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json', 'ocp-date': new Date().toUTCString() };
+  if (needsBatchProxy()) hdrs['X-Batch-Host'] = batchEndpoint();
+  return hdrs;
+}
+
+function batchProxyBase() {
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+  return base + '/api/batch';
 }
 
 export async function batchFetch(pathOrUrl) {
   let url;
+  const proxy = needsBatchProxy();
   if (pathOrUrl.startsWith('https://')) {
-    url = pathOrUrl;
-    if (!url.includes('api-version=')) url += (url.includes('?') ? '&' : '?') + 'api-version=2024-02-01.19.0';
+    // Absolute URL — extract host and path for proxy
+    if (proxy) {
+      const u = new URL(pathOrUrl);
+      if (!u.search.includes('api-version=')) u.searchParams.set('api-version', '2024-02-01.19.0');
+      url = batchProxyBase() + u.pathname + u.search;
+    } else {
+      url = pathOrUrl;
+      if (!url.includes('api-version=')) url += (url.includes('?') ? '&' : '?') + 'api-version=2024-02-01.19.0';
+    }
   } else {
     const sep = pathOrUrl.includes('?') ? '&' : '?';
-    url = batchEndpoint() + pathOrUrl + sep + 'api-version=2024-02-01.19.0';
+    if (proxy) {
+      url = batchProxyBase() + pathOrUrl + sep + 'api-version=2024-02-01.19.0';
+    } else {
+      url = 'https://' + batchEndpoint() + pathOrUrl + sep + 'api-version=2024-02-01.19.0';
+    }
   }
-  const r = await fetch(url, { headers: batchHeaders() });
+  const hdrs = batchHeaders();
+  const r = await fetch(url, { headers: hdrs });
   if (!r.ok) { let m = `HTTP ${r.status}`; try { const e = await r.json(); m = e.message?.value || e.code || m; } catch {} throw new Error(m); }
   return r;
 }

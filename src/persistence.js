@@ -4,7 +4,7 @@ const STORAGE_KEY = 'swebench_prompt_gen';
 
 export function saveState() {
   try {
-    const settingIds = ['azSub', 'azRg', 'azFactory', 'azPipeline', 'azStorage', 'azContainer', 'azOutputFolder', 'azModel', 'azTimeout', 'azGhToken', 'azBatchEndpoint', 'batchPoolFilter', 'auditPipelineName', 'auditOutputFolder', 'auditLevel', 'bbGenRubricPipeline', 'bbAutoRunPipeline', 'bbRubricOutputFolder', 'bbBugBashOutputFolder', 'bbPromptsFolder'];
+    const settingIds = ['azSub', 'azRg', 'azFactory', 'azPipeline', 'azStorage', 'azContainer', 'azOutputFolder', 'azModel', 'azTimeout', 'azBatchEndpoint', 'batchPoolFilter', 'auditPipelineName', 'auditOutputFolder', 'auditLevel', 'bbGenRubricPipeline', 'bbAutoRunPipeline', 'bbRubricOutputFolder', 'bbBugBashOutputFolder', 'bbPromptsFolder'];
     const settings = {};
     for (const id of settingIds) { const el = document.getElementById(id); if (el) settings[id] = el.value; }
     const tasks = [];
@@ -24,7 +24,7 @@ export function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return false;
     const state = JSON.parse(raw);
-    if (state.settings) { for (const [id, val] of Object.entries(state.settings)) { const el = document.getElementById(id); if (el && val) el.value = val; } }
+    if (state.settings) { for (const [id, val] of Object.entries(state.settings)) { if (id === 'azGhToken') continue; const el = document.getElementById(id); if (el && val) el.value = val; } }
     if (state.tasks?.length) { document.getElementById('taskBody').innerHTML = ''; for (const t of state.tasks) addRow(t.repo || '', t.cat || '', t.diff || '', parseInt(t.num) || 3); }
     if (state.blobSubfolder) { const sel = document.getElementById('blobSubfolder'); if (sel) sel.value = state.blobSubfolder; }
     return true;

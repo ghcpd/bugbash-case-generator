@@ -78,7 +78,15 @@ export async function triggerPipeline() {
   el.innerHTML = '<span class="spin"></span> Triggering pipeline…';
   try {
     const params = { repo_list: _expandedRepoList };
-    const gh = document.getElementById('azGhToken').value.trim(); if (gh) params.github_token = gh;
+    const gh = document.getElementById('azGhToken').value.trim();
+    if (gh) {
+      if (gh.startsWith('{') || gh.startsWith('[')) {
+        el.className = 'status-banner show err'; el.style = '';
+        el.innerHTML = '✕ GitHub Token looks like JSON (possibly pasted from token import). Please paste a raw ghp_xxx / github_pat_xxx token or leave it empty.';
+        btn.disabled = false; return;
+      }
+      params.github_token = gh;
+    }
     const mo = document.getElementById('azModel').value.trim(); if (mo) params.copilot_model = mo;
     const to = document.getElementById('azTimeout').value.trim(); if (to) params.copilot_timeout = to;
     const data = await azFetch('POST', `/pipelines/${encodeURIComponent(document.getElementById('azPipeline').value.trim())}/createRun?api-version=2018-06-01`, params);

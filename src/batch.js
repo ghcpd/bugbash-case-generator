@@ -159,6 +159,34 @@ export async function searchBatchExplorer() {
   }
 }
 
+export async function linkBatchByTaskIds(taskIds, sourceLabel) {
+  if (!taskIds.size) return;
+  const jobs = _batchJobsCache.length ? _batchJobsCache : await listBatchJobs({ silent: true });
+  _linkedBatchJobIds = new Set();
+  _linkedBatchMatchMap = {};
+  _linkedBatchTaskIds = new Set(taskIds);
+  _linkedBatchSource = sourceLabel;
+  let focusJobId = '';
+  for (const job of jobs) {
+    const jobId = job.id || '';
+    const tasks = await fetchBatchTasks(jobId);
+    for (const task of tasks) {
+      if (taskIds.has(task.id || '')) {
+        _linkedBatchJobIds.add(jobId);
+        if (!_linkedBatchMatchMap[jobId]) _linkedBatchMatchMap[jobId] = new Set();
+        _linkedBatchMatchMap[jobId].add(task.id);
+        if (!focusJobId) focusJobId = jobId;
+      }
+    }
+  }
+  renderBatchJobs();
+  if (focusJobId) {
+    await loadBatchTasks(focusJobId);
+    renderBatchTasks(focusJobId, 'all', 'id-asc', '');
+  }
+  return { matchedJobs: _linkedBatchJobIds.size, matchedTasks: _linkedBatchTaskIds.size, focusJobId };
+}
+
 export async function renderActiveBatchTasksFallback(sourceLabel) {
   const jobs = _batchJobsCache.length ? _batchJobsCache : await listBatchJobs({ silent: true });
   const candidates = [];

@@ -143,6 +143,10 @@ export function triggerBugBashGenRubric() {
   const promptsFolder = document.getElementById('bbPromptsFolder').value.trim();
   const inputFolder = document.getElementById('azOutputFolder').value.trim();
   const ghToken = document.getElementById('azGhToken').value.trim();
+  if (ghToken && (ghToken.startsWith('{') || ghToken.startsWith('['))) {
+    alert('GitHub Token looks like JSON (possibly pasted from token import). Please paste a raw ghp_xxx / github_pat_xxx token or leave it empty.');
+    return;
+  }
 
   // Build repos array: tar.gz base names of selected cases
   const repos = selected
