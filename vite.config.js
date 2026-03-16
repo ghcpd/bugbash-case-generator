@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => ({
   root: '.',
-  base: mode === 'production' ? '/caseGenerator/' : '/',
+  base: '/caseGenerator/',
   build: {
     outDir: 'dist',
   },

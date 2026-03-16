@@ -32,22 +32,36 @@ export async function refreshBlobs() {
     let h = `<div style="font-size:11px;color:var(--muted);padding:6px 0 8px">${items.length} files in <code>${esc(prefix)}</code></div>`;
     for (const f of items) {
       const isJsonl = f.shortName.endsWith('.jsonl');
-      h += `<div class="blob-file" ${isJsonl ? `style="cursor:pointer" onclick="window._app.previewBlob('${f.name.replace(/'/g, "\\'")}')"` : ''}>
+      const safeN = f.name.replace(/'/g, "\\'");
+      h += `<div class="blob-file" data-blob="${esc(f.name)}" ${isJsonl ? `style="cursor:pointer" onclick="window._app.previewBlob('${safeN}',this)"` : ''}>
         <span class="blob-icon">${isJsonl ? '📋' : '📦'}</span>
         <span class="blob-name">${esc(f.shortName)}</span>
         <span class="blob-size">${fmtBytes(f.size)}</span>
         <span class="blob-size">${fmtTime(f.modified)}</span>
-        <button class="btn-copy" onclick="event.stopPropagation();window._app.copyText('${f.name.replace(/'/g, "\\'")}','File path')">📋</button>
-        ${isJsonl ? `<button class="btn-sm" onclick="event.stopPropagation();window._app.previewBlob('${f.name.replace(/'/g, "\\'")}')">View</button>` : ''}
+        <button class="btn-copy" onclick="event.stopPropagation();window._app.copyText('${safeN}','File path')">📋</button>
+        ${isJsonl ? `<button class="btn-sm" onclick="event.stopPropagation();window._app.previewBlob('${safeN}',this.closest('.blob-file'))">View</button>` : ''}
       </div>`;
     }
     el.innerHTML = h;
   } catch (e) { el.innerHTML = `<p class="empty" style="color:var(--red)">${corsErrorHtml(e.message)}</p>`; }
 }
 
-export async function previewBlob(blobName) {
-  const el = document.getElementById('blobPreview');
-  el.innerHTML = `<div class="blob-preview"><span class="spin"></span> Loading…</div>`;
+export async function previewBlob(blobName, triggerEl) {
+  // Remove any existing inline preview
+  const existing = document.getElementById('blobPreviewInline');
+  if (existing) existing.remove();
+
+  // Create inline preview container right after the clicked file row
+  const previewDiv = document.createElement('div');
+  previewDiv.id = 'blobPreviewInline';
+  previewDiv.innerHTML = `<div class="blob-preview"><span class="spin"></span> Loading…</div>`;
+
+  if (triggerEl) {
+    triggerEl.insertAdjacentElement('afterend', previewDiv);
+  } else {
+    document.getElementById('blobPreview').appendChild(previewDiv);
+  }
+
   try {
     const url = blobBaseUrl() + '/' + encodeURIComponent(blobName).replace(/%2F/g, '/');
     const resp = await fetch(url, { headers: blobHeaders() });
@@ -57,9 +71,9 @@ export async function previewBlob(blobName) {
     _lastPreviewName = blobName;
 
     if (blobName.endsWith('.jsonl')) {
-      showPreviewWithTabs(blobName, text, el, 'raw');
+      showPreviewWithTabs(blobName, text, previewDiv, 'raw');
     } else {
-      el.innerHTML = `<div class="blob-preview">
+      previewDiv.innerHTML = `<div class="blob-preview">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <span style="font-weight:600;font-size:12px;color:var(--accent);flex:1">${esc(blobName.split('/').pop())}</span>
           <button class="btn-copy" onclick="window._app.clipboardWrite(document.getElementById('blobText').textContent).then(()=>window._app.toast('Content copied!'))">📋 Copy</button>
@@ -68,7 +82,7 @@ export async function previewBlob(blobName) {
         <pre id="blobText">${esc(text)}</pre>
       </div>`;
     }
-  } catch (e) { el.innerHTML = `<div class="blob-preview"><p style="color:var(--red)">${corsErrorHtml(e.message)}</p></div>`; }
+  } catch (e) { previewDiv.innerHTML = `<div class="blob-preview"><p style="color:var(--red)">${corsErrorHtml(e.message)}</p></div>`; }
 }
 
 function showPreviewWithTabs(blobName, text, el, activeTab) {
@@ -102,7 +116,18 @@ function showPreviewWithTabs(blobName, text, el, activeTab) {
 }
 
 export function switchPreviewTab(tab) {
-  const el = document.getElementById('blobPreview');
+  const el = document.getElementById('blobPreviewInline');
   if (!_lastPreviewText || !el) return;
   showPreviewWithTabs(_lastPreviewName, _lastPreviewText, el, tab);
+}
+
+export function switchResultsTab(tab) {
+  const blobs = document.getElementById('resultsSubBlobs');
+  const quality = document.getElementById('resultsSubQuality');
+  if (!blobs || !quality) return;
+  blobs.style.display = tab === 'blobs' ? '' : 'none';
+  quality.style.display = tab === 'quality' ? '' : 'none';
+  document.querySelectorAll('.qe-sub-tab').forEach((el, i) => {
+    el.classList.toggle('active', (i === 0 && tab === 'blobs') || (i === 1 && tab === 'quality'));
+  });
 }
